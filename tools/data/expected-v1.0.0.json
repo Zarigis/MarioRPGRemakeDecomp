@@ -1,0 +1,17 @@
+{
+  "_comment": "Super Mario RPG (Switch) 1.0.0: hashes of the code modules and the RomFS image as tools/extract.py writes them.",
+  "title_id": "0100BC0018138000",
+  "version": 0,
+  "display_version": "1.0.0",
+  "exefs_sha256": {
+    "main": "34a40469b346ef719213d6d0dd5725314755b23f36d483e39596abc008f0201e",
+    "main.npdm": "71d20b9e739b408bf11354f3ef66a3f4bd63d38643a0091456301b00f066b19f",
+    "rtld": "a80d86eb5ae6ddec62c78e06d5ebf45142a7e2f173d0bfd9da224526d1872e47",
+    "sdk": "adc1ae2f67c278b7501312a0a3a410585c2e33db0fa6b6733672904e6e87c960",
+    "subsdk0": "aa9dd7e5a20cba0e850e68967e380be58de8e3de19fdd93c5a60486b4e0901f0"
+  },
+  "romfs": {
+    "size": 6821116180,
+    "sha256": "73c92184b14eb4e30c7e9275abb00a3beae7589c5098c2279c75c3096f3ff59a"
+  }
+}

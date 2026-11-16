@@ -1,0 +1,13 @@
+# Copy to config.local.toml (ignored by git) and point it at your own files.
+
+[input]
+# Base game 1.0.0, title id 0100BC0018138000, as NSP or XCI.
+base = 'C:\Games\SuperMarioRPG\base.nsp'
+# Update NSPs, title id 0100BC0018138800. Each is identified by its code hash; 1.0.1 is supported.
+updates = ['C:\Games\SuperMarioRPG\update-1.0.1.nsp']
+# Keys dumped from your own console. Never printed or copied by the tools.
+keys = 'C:\Switch\prod.keys'
+
+[work]
+# Extracted files, generated C and builds go here. Allow about 30 GB.
+dir = 'build'
