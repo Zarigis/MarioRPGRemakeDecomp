@@ -156,6 +156,19 @@ static void ov_append(Cpu *c) {
         if (!o->count) o->clock_start = plat_now_ns() - o->appended * 1000000000ull / ((uint64_t)o->rate * 2 * (uint64_t)o->channels);
         if (o->stream && b->data && b->data_size)
             SDL_PutAudioStreamData(o->stream, (const void *)(uintptr_t)b->data, (int)b->data_size);
+        if ((rt_trace & RT_TRACE_AUDIO) && b->data) {   // the loudest sample per channel, over about 5 s of buffers
+            static int peak[8], n;
+            const int16_t *s = (const int16_t *)(uintptr_t)b->data;
+            for (uint64_t i = 0, ns = b->data_size / 2; i < ns; i++) {
+                int ch = (int)(i % (uint64_t)o->channels) & 7, v = s[i] < 0 ? -s[i] : s[i];
+                if (v > peak[ch]) peak[ch] = v;
+            }
+            if (++n % 256 == 0) {
+                rt_log("audio out: %d buffers, %llu bytes; peak per channel %d %d %d %d %d %d", n,
+                       (unsigned long long)o->appended, peak[0], peak[1], peak[2], peak[3], peak[4], peak[5]);
+                memset(peak, 0, sizeof peak);
+            }
+        }
         o->appended += b->data_size;
         o->q[(o->head + o->count++) % MAX_QUEUED] = (typeof(o->q[0])){arg_x(c, 1), o->appended};
     }

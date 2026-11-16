@@ -423,6 +423,30 @@ NVN_API(nvnProgramFinalize) {
     prog_release(o);
     o->magic = 0;
 }
+// A host copy of a shader's control section, one per distinct content and never freed. NVN reads the control section
+// during SetShaders only; the replay reads it when a draw first uses the program (find_stage in vk_exec_draw.c,
+// req_init in gfx_shader.c), on another thread and possibly after Finalize. Unity frees and reuses the memory right
+// after the call: the replay then read a stage and a code length out of whatever lay there (a draw skipped for a
+// missing vertex stage, or a copy of a gigabyte of "shader code").
+enum { CONTROL_BYTES = 0x880 };   // CONTROL_SIZE in gfx_shader.c
+static PlatMutex ctl_lock = PLAT_MUTEX_INIT;
+static nvn_hmap ctl_by_hash;
+static const void *control_copy(const void *control) {
+    if (!control) return NULL;
+    uint64_t k[2] = {nvn_hm_hash(control, CONTROL_BYTES), nvn_hm_hash((const uint8_t *)control + 8, CONTROL_BYTES - 8)};
+    plat_mutex_lock(&ctl_lock);
+    if (!ctl_by_hash.klen) nvn_hm_init(&ctl_by_hash, sizeof k);
+    void *v = nvn_hm_get(&ctl_by_hash, k);
+    if (!v || memcmp(v, control, CONTROL_BYTES)) {
+        void *copy = malloc(CONTROL_BYTES);
+        if (!copy) rt_fatal("nvn: out of memory for a shader control section");
+        memcpy(copy, control, CONTROL_BYTES);
+        if (!v) nvn_hm_put(&ctl_by_hash, k, copy);   // two contents under one key: the second stays unshared
+        v = copy;
+    }
+    plat_mutex_unlock(&ctl_lock);
+    return v;
+}
 static int prog_set_shaders(prog_t *o, int n, const NVNshaderData *sd) {
     if (n < 0 || n > 6 || (n && !sd)) {
         rt_log("nvn: ProgramSetShaders with %d stages at %p", n, (const void *)sd);
@@ -431,6 +455,7 @@ static int prog_set_shaders(prog_t *o, int n, const NVNshaderData *sd) {
     prog_release(o);
     o->nstage = (uint32_t)n;
     if (n) memcpy(o->sd, sd, (size_t)n * sizeof *sd);
+    for (int i = 0; i < n; i++) o->sd[i].control = control_copy(sd[i].control);
     o->serial = nvn_new_serial();
     NVN_LOG("ProgramSetShaders %p n=%d data0=%#llx", (void *)o, n, n ? (unsigned long long)sd[0].data : 0ull);
     return 1;

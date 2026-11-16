@@ -578,10 +578,13 @@ static uint64_t due_at(const Movie *m, const Ready *d) {
     return m->t0 + (uint64_t)ahead * 1000;
 }
 // One present: drop leading frames more than 1.5 periods late while the next one is due too, then hand over at most one
-// due frame (end of stream right after the last frame).
+// due frame (end of stream right after the last frame). A texture-mode client gets every frame as it is decoded: the
+// CRI player in Unity titles times the frames itself and plays until it has received as many as the file's header
+// counts, so a dropped frame left it waiting on the movie's last picture for ever, and it skips the output that
+// carries the end-of-stream flag.
 static void release_due(Movie *m, uint64_t now) {
     if (!m->ndecoded) return;
-    if (!pace_on()) {
+    if (!pace_on() || m->texture) {
         for (int i = 0; i < m->ndecoded; i++) m->ready[m->nready++] = m->decoded[i];
         m->st.handed += m->ndecoded;
         m->ndecoded = 0;

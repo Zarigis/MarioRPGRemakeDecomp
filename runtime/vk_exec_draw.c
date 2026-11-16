@@ -2176,6 +2176,9 @@ static void bind_resources(VkExec *ex, const VkPipeInfo *info) {
         }
         nd += cnt;
     }
+    // Set 1 without bindings (a fragment stage that reads nothing, as in a depth-only pass) starts where set 0 ends:
+    // left at 0, set 0's size below came out as 0 and its template was pushed with no data.
+    if (n_sets == 2 && lo[1] == info->n_bindings) d0[1] = nd;
     // Under the validation layer, a new graphics layout binds set 1 before set 0 is pushed or bound. The layer (SDK
     // 1.4.363, PipelineLayoutCompatDef::operator==) takes any two INDEPENDENT_SETS layouts as compatible, so
     // vkCmdPushDescriptorSetKHR keeps the push set it made for an earlier layout and drops writes to bindings that
@@ -2201,6 +2204,7 @@ static void bind_resources(VkExec *ex, const VkPipeInfo *info) {
             }
             continue;
         }
+        if (i1 == i0) continue;            // a program without resources in set 0: nothing to push or bind
         if (s ? info->push1 : info->push) {
             uint32_t n = gfx && push_skip_on() ? dbytes : 0;
             if (n && D->B.ds_pushed[s] && D->DS.pn[s] == n && !memcmp(D->DS.psig[s], ds, n)) {
