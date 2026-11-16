@@ -51,7 +51,20 @@ game with all its threads and its clock, play a turn of timed inputs from a paus
 pause, record every Nth frame between pauses. `tools/mcp/mrpg_mcp.py` offers it as an MCP server (`.mcp.json` registers
 it as `mrpg`): `game_start`, `game_turn`, `game_pause`, `game_screenshot`, `game_record` and the rest are defined in
 `tools/mcp/mrpg_tools.py`, which the server loads again whenever the file changes, so the tools can be edited without
-reconnecting. The game it starts logs to `build/mcp/game.log` and outlives the server.
+reconnecting. The game it starts logs to `build/mcp/<instance>/game.log` and outlives the server.
+
+- **Instances.** Every tool takes `instance`. `main` is `build/<version>`; any other name is a copy of the build in
+  `build/<name>` with its own saves, `mrpg.ini`, caches and port, so a play-test goes on while the main build changes.
+- **Sessions.** Every `game_start` makes `build/mcp/<instance>/sessions/<time>/` with the save as it was at the start,
+  `input.txt` (all input the game saw, by game frame, written by the game as it plays) and `log.jsonl` (every tool
+  call). `game_start` with `replay` set to that folder puts the save back and plays the input. A replay repeats the
+  player's own movement exactly; enemies wandering on the field were elsewhere in a test, so what depends on the
+  game's random numbers or on load timing is not repeatable yet.
+- **Cheats.** `game_party`, `game_heal` and `game_coins` read and write the game's state through the port's `peek` and
+  `poke`. Where that state lives is written down at the top of the cheats in `mrpg_tools.py`, for version 1.0.1, found
+  with `tools/il2cpp_meta.py` (names of the game's managed types, fields and methods) and `tools/il2cpp_bin.py` (where
+  a method's code is in `main`).
+- Hints for playing the game through these tools: [playtesting.md](playtesting.md).
 
 ## Observing
 

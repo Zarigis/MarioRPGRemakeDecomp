@@ -728,6 +728,81 @@ static void ov_to_posix_utc(Cpu *c) {
     ret_x(c, (uint64_t)t);
 }
 
+// Result ToPosixTime(int *count, PosixTime *out, int max, const CalendarTime &c): local time to POSIX time. A local time
+// a clock change repeats has two answers on the console; the host's rule gives one.
+static void ov_to_posix(Cpu *c) {
+    int *count = arg_p(c, 0);
+    int64_t *out = arg_p(c, 1);
+    int max = (int)arg_x(c, 2);
+    const CalendarTime *ct = arg_p(c, 3);
+    if (!count || !ct || (max > 0 && !out)) { ret_x(c, TIME_R_INVALID); return; }
+    int64_t mon = ct->month - 1, y = ct->year + floor_div(mon, 12);
+    mon -= floor_div(mon, 12) * 12;
+    int64_t as_utc = (days_from_civil(y, (unsigned)mon + 1, 1) + ct->day - 1) * 86400 + ct->hour * 3600 +
+                     ct->minute * 60 + ct->second, t = as_utc;
+    for (int i = 0; i < 2; i++) {   // the offset in force at the answer, not at the same digits read as UTC
+        CalendarTime lc;
+        CalendarInfo li;
+        if (!local_calendar(t, &lc, &li)) { ret_x(c, TIME_R_INVALID); return; }
+        t = as_utc - li.utc_offset;
+    }
+    *count = max > 0;
+    if (max > 0) out[0] = t;
+    ret_x(c, 0);
+}
+
+// Result StandardUserSystemClock::GetSystemClockContext(SystemClockContext *out): {int64 offset, steady clock time point
+// {int64 seconds, 16-byte source id}}. The wall clock is the steady clock plus the offset: IL2CPP's DateTime.Now adds
+// the two itself. With a zero offset it read the steady clock alone, seconds since the host started, as a day in 1970.
+// The offset is taken once, so the context is the same at every call, as on a console whose clock nobody sets.
+static void ov_clock_context(Cpu *c) {
+    struct { int64_t offset; SteadyClockTimePoint at; } *out = arg_p(c, 0);
+    if (!out) { ret_x(c, TIME_R_INVALID); return; }
+    static int64_t offset;
+    static volatile int32_t have;
+    SteadyClockTimePoint now = steady_now();
+    if (!plat_xchg32(&have, 1)) offset = posix_now() - now.value;
+    out->offset = offset;
+    out->at = now;
+    out->at.value = 0;
+    ret_x(c, 0);
+}
+
+// The C library's wall clock. The SDK's own reads a clock the time service sets, which is not there: it counted from
+// the start of the host instead, so IL2CPP's DateTime.Now was a day in 1970 and the game wrote its saves with the date
+// 0001/01/01. time_t time(time_t *), int gettimeofday(struct timeval *, void *), int clock_gettime(clockid_t,
+// struct timespec *) for CLOCK_REALTIME (0; the other clocks stay the SDK's), and libc++'s
+// std::chrono::system_clock::now() in microseconds.
+static void wall_now(int64_t *sec, int64_t *nsec) {
+    struct timespec ts;
+    timespec_get(&ts, TIME_UTC);
+    *sec = ts.tv_sec, *nsec = ts.tv_nsec;
+}
+static void ov_libc_time(Cpu *c) {
+    int64_t *out = arg_p(c, 0), s, ns;
+    wall_now(&s, &ns);
+    if (out) *out = s;
+    ret_x(c, (uint64_t)s);
+}
+static void ov_libc_gettimeofday(Cpu *c) {
+    int64_t *tv = arg_p(c, 0), s, ns;
+    wall_now(&s, &ns);
+    if (tv) tv[0] = s, tv[1] = ns / 1000;
+    ret_x(c, 0);
+}
+static void obs_libc_clock_gettime(Cpu *c) {
+    int64_t *ts = arg_p(c, 1), s, ns;
+    if (arg_x(c, 0) != 0 || !ts) { ret_x(c, rt_original(c)); return; }
+    wall_now(&s, &ns);
+    ts[0] = s, ts[1] = ns;
+    ret_x(c, 0);
+}
+static void ov_system_clock_now(Cpu *c) {
+    int64_t s, ns;
+    wall_now(&s, &ns);
+    ret_x(c, (uint64_t)(s * 1000000 + ns / 1000));
+}
+
 // ClockSnapshot::ClockSnapshot()
 static void ov_snapshot_init(Cpu *c) {
     ClockSnapshot *s = arg_p(c, 0);
@@ -935,6 +1010,12 @@ HOST_OVERRIDE("_ZN2nn4time14ToCalendarTimeEPNS0_12CalendarTimeEPNS0_22CalendarAd
               ov_to_calendar);
 HOST_OVERRIDE("_ZN2nn4time19ToCalendarTimeInUtcERKNS0_9PosixTimeE", ov_to_calendar_utc);
 HOST_OVERRIDE("_ZN2nn4time18ToPosixTimeFromUtcERKNS0_12CalendarTimeE", ov_to_posix_utc);
+HOST_OVERRIDE("_ZN2nn4time11ToPosixTimeEPiPNS0_9PosixTimeEiRKNS0_12CalendarTimeE", ov_to_posix);
+HOST_OVERRIDE("_ZN2nn4time23StandardUserSystemClock21GetSystemClockContextEPNS0_18SystemClockContextE", ov_clock_context);
+HOST_OVERRIDE("time", ov_libc_time);
+HOST_OVERRIDE("gettimeofday", ov_libc_gettimeofday);
+HOST_OBSERVER("clock_gettime", obs_libc_clock_gettime);
+HOST_OVERRIDE("_ZNSt3__16chrono12system_clock3nowEv", ov_system_clock_now);
 HOST_OVERRIDE("_ZN2nn4time13ClockSnapshotC1Ev", ov_snapshot_init);
 HOST_OVERRIDE("_ZN2nn4time13ClockSnapshot29CreateWithStandardSystemClockEPS1_", ov_snapshot_create);
 HOST_OVERRIDE("_ZN2nn4time20CalculateSpanBetweenEPNS_8TimeSpanERKNS0_13ClockSnapshotES5_", ov_span_between);

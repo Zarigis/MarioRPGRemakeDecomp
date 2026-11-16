@@ -16,6 +16,9 @@
 //                                 (every 1: each frame between two pauses); `record 0` ends it. It slows the game
 //                                 down by a read-back and a PNG per recorded frame, but game time is counted in
 //                                 frames by `turn`, so a recorded turn covers the same frames as an unrecorded one
+//   peek <addr hex> <bytes>       guest memory as hex, at most 1024 bytes (guest addresses are host addresses)
+//   poke <addr hex> <hex bytes>   writes guest memory. Both refuse a range that is not committed and accessible, and
+//                                 neither knows anything about the game: what lives where is the client's business
 //   quit                          saves and ends the process
 //
 // A pause is kern_freeze (kernel.c): every guest thread stops at its next checkpoint and the guest clock stands still,
@@ -195,6 +198,24 @@ static int write_shot(const char *path, uint32_t ow, uint32_t oh) {
     return 1;
 }
 
+// Whether [a, a + n) can be read (and written, for write) without a fault.
+static int accessible(uint64_t a, size_t n, int write) {
+#ifdef _WIN32
+    for (uint64_t at = a, end = a + n; at < end;) {
+        MEMORY_BASIC_INFORMATION mi;
+        if (!VirtualQuery((void *)(uintptr_t)at, &mi, sizeof mi) || mi.State != MEM_COMMIT) return 0;
+        DWORD p = mi.Protect & 0xff;
+        if ((mi.Protect & PAGE_GUARD) || p == PAGE_NOACCESS || (write && p != PAGE_READWRITE && p != PAGE_EXECUTE_READWRITE))
+            return 0;
+        at = (uint64_t)(uintptr_t)mi.BaseAddress + mi.RegionSize;
+    }
+    return 1;
+#else
+    (void)write;
+    return a >= 0x10000 && n > 0;   // no cheap check here: the client is trusted with the address
+#endif
+}
+
 static void command(char *line, char *out, size_t cap) {
     char cmd[16] = "";
     int off = 0;
@@ -286,6 +307,32 @@ static void command(char *line, char *out, size_t cap) {
             }
             status(out, cap, NULL);
         }
+    } else if (!strcmp(cmd, "peek")) {
+        unsigned long long a = 0;
+        unsigned n = 0;
+        if (sscanf(args, "%llx %u", &a, &n) < 2 || !n || n > 1024) {
+            fail(out, cap, "peek <addr hex> <bytes up to 1024>");
+        } else if (!accessible(a, n, 0)) {
+            fail(out, cap, "that memory is not readable");
+        } else {
+            size_t k = (size_t)snprintf(out, cap, "{\"ok\":1,\"hex\":\"");
+            for (unsigned i = 0; i < n; i++) k += (size_t)snprintf(out + k, cap - k, "%02x", ((const uint8_t *)(uintptr_t)a)[i]);
+            snprintf(out + k, cap - k, "\"}\n");
+        }
+    } else if (!strcmp(cmd, "poke")) {
+        unsigned long long a = 0;
+        char hex[2050] = "";
+        size_t n = sscanf(args, "%llx %2048s", &a, hex) == 2 ? strlen(hex) : 0;
+        uint8_t b[1024];
+        int ok = n && n % 2 == 0;
+        for (size_t i = 0; ok && i < n / 2; i++) {
+            unsigned v;
+            ok = sscanf(hex + 2 * i, "%2x", &v) == 1;
+            b[i] = (uint8_t)v;
+        }
+        if (!ok) fail(out, cap, "poke <addr hex> <hex bytes, up to 1024>");
+        else if (!accessible(a, n / 2, 1)) fail(out, cap, "that memory is not writable");
+        else memcpy((void *)(uintptr_t)a, b, n / 2), status(out, cap, NULL);
     } else if (!strcmp(cmd, "quit")) {
         rt_log("control: quit");
         fs_save_flush();
@@ -301,7 +348,7 @@ static void server(void *arg) {
     for (;;) {
         sock_t s = accept(ls, NULL, NULL);
         if (s == INVALID_SOCKET) continue;
-        char line[16384], out[1536];
+        char line[16384], out[4096];
         size_t n = 0;
         while (n < sizeof line - 1) {
             int k = recv(s, line + n, (int)(sizeof line - 1 - n), 0);
