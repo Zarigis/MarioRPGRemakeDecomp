@@ -3,24 +3,24 @@
 // Read-only game RomFS backed by the player's extracted image.
 //
 // Input: <romfs>/romfs.bin (rt_config()->romfs), whose six IVFC levels and SHA-256 tools/extract.py verified, and
-// romfs-index.bin next to totk.exe (TOTK_ROMFS_INDEX overrides), which tools/romfs_index.py wrote together with
+// romfs-index.bin next to mrpg.exe (MRPG_ROMFS_INDEX overrides), which tools/romfs_index.py wrote together with
 // romfs_config.h. fs_init checks the index's SHA-256 and layout and the image size. The full 17 GB hash runs only with
-// TOTK_ROMFS_VERIFY=full; a proof file (.romfs-verified-v1 next to the index, or in TOTK_ROMFS_PROOF_DIR) keyed by
-// the file's volume, file id, size and times skips it on later starts, TOTK_ROMFS_VERIFY=force ignores the proof.
+// MRPG_ROMFS_VERIFY=full; a proof file (.romfs-verified-v1 next to the index, or in MRPG_ROMFS_PROOF_DIR) keyed by
+// the file's volume, file id, size and times skips it on later starts, MRPG_ROMFS_VERIFY=force ignores the proof.
 //
 // Reads are positional (platform.h plat_file_pread), so threads read the image in parallel without a file-pointer
-// lock. TOTK_ROMFS_MMAP=1 maps the image instead.
+// lock. MRPG_ROMFS_MMAP=1 maps the image instead.
 //
 // Overlays: files listed in a directory's manifest.tsv are served in place of the originals. Each line names a RomFS
 // path, the overlay's size and SHA-256 and the original's SHA-256 ("-" adds a file the RomFS lacks; it is numbered
-// after the RomFS's own files, file_count + k in path order). The directories, in this order: TOTK_ROMFS_PATCHES and
-// TOTK_ROMFS_MODS; unset or "0" = none. A missing path, a size or hash mismatch or a changed original stops the start.
+// after the RomFS's own files, file_count + k in path order). The directories, in this order: MRPG_ROMFS_PATCHES and
+// MRPG_ROMFS_MODS; unset or "0" = none. A missing path, a size or hash mismatch or a changed original stops the start.
 // An overlay file is opened when the game opens it; its identity (volume, file id, size, last write) is kept from the
 // start check, and an open that finds another file there stops the game.
 //
 // Player mods (mods.c): the files under each enabled mod's RomFS root are overlays too, checked by identity only (no
 // hash, no manifest). A path several overlays give is served by one: a player mod higher in the order beats a lower
-// one, any player mod beats the TOTK_ROMFS_MODS manifest, which beats romfs-patches (overlay_contest). A mod path that
+// one, any player mod beats the MRPG_ROMFS_MODS manifest, which beats romfs-patches (overlay_contest). A mod path that
 // matches a RomFS path only without case is served under the RomFS spelling.
 //
 // The resource size table: with a player mod enabled, the game's table is rebuilt at start with the tables the mods
@@ -53,7 +53,7 @@ typedef struct { uint64_t offset, size; uint32_t name, len; } Entry;
 _Static_assert(sizeof(Entry) == 24, "index entry layout");
 
 typedef struct { uint32_t volume, pad; uint64_t file_id, size, write_time, create_time; } Identity;   // no padding
-// prio: which overlay serves a path two of them give (the higher); romfs-patches 0, the TOTK_ROMFS_MODS manifest 1, a
+// prio: which overlay serves a path two of them give (the higher); romfs-patches 0, the MRPG_ROMFS_MODS manifest 1, a
 // player mod 2 + its distance from the bottom of the order. mod: its index in mods_at + 1, 0 for any other overlay.
 typedef struct { uint64_t index, size; char *path, *name; Identity id; int prio, mod; } Overlay;
 
@@ -137,12 +137,12 @@ static void sha_range(PlatFile *f, uint64_t offset, uint64_t size, char hex[65],
 typedef struct { char magic[16], sha256[65]; uint8_t pad[7]; Identity id; } RomfsProof;
 
 static void verify_image(const char *dir) {
-    const char *mode = cfg_get("TOTK_ROMFS_VERIFY");
+    const char *mode = cfg_get("MRPG_ROMFS_VERIFY");
     if (!mode || (strcmp(mode, "full") && strcmp(mode, "force"))) return;
-    const char *pdir = cfg_get("TOTK_ROMFS_PROOF_DIR");
+    const char *pdir = cfg_get("MRPG_ROMFS_PROOF_DIR");
     if (pdir && *pdir) dir = pdir;
     RomfsProof want = {0}, saved;
-    memcpy(want.magic, "TOTKRFS-PROOF-1", 16);
+    memcpy(want.magic, "MRPGRFS-PROOF-1", 16);
     memcpy(want.sha256, ROMFS_IMAGE_SHA256, sizeof ROMFS_IMAGE_SHA256 < 65 ? sizeof ROMFS_IMAGE_SHA256 : 65);
     want.id = identity_of(image);
     char path[2100];
@@ -222,7 +222,7 @@ static uint32_t overlay_slot(uint64_t i) {
 // ---- overlays
 // Loads and checks one overlay folder. A failed check stops the game, except with optional set (the Xbox prompts
 // folder): the folder is dropped, the reason logged, and 0 returned. Returns 1 when the folder is loaded or has no
-// manifest. prio: the Overlay field (0 for the port's own folders, 1 for the TOTK_ROMFS_MODS manifest).
+// manifest. prio: the Overlay field (0 for the port's own folders, 1 for the MRPG_ROMFS_MODS manifest).
 static int overlay_load(const char *dir, int optional, int prio) {
 #define BAD(...) do { if (!optional) rt_fatal(__VA_ARGS__); rt_log(__VA_ARGS__); goto bad; } while (0)
     char path[2100];
@@ -748,7 +748,7 @@ static int restbl_packs(Restbl *out, const Restbl *base, int *packs, int *lines)
     return raised;
 }
 
-// With a player mod (or the TOTK_ROMFS_MODS manifest) serving files: the game's table with every shipped table of this
+// With a player mod (or the MRPG_ROMFS_MODS manifest) serving files: the game's table with every shipped table of this
 // version merged in (an entry larger than the game's wins), the entries a mod's table for another version gives for
 // that mod's files, and each served mod file's entry raised to what its size needs (restbl_grow for a file the game
 // has, restbl_estimate for an added one), the members of the packs mods serve too (restbl_packs). Never lowers the
@@ -845,7 +845,7 @@ static void restbl_overlay(void) {
                members, packs, (now_s() - t0) * 1000);
 }
 
-// The HeapDef table a bigger game resolution or TOTK_TEX_HEAP_EXTRA_MB needs (resolution.c): its texture heaps and
+// The HeapDef table a bigger game resolution or MRPG_TEX_HEAP_EXTRA_MB needs (resolution.c): its texture heaps and
 // their parents grow. The base is an overlay that replaces the table (a mod's heap sizes stay), else the RomFS
 // original; the grown table is written to <profile>/resolution/ and served in the base's place. A served mod table
 // whose own TextureHeap is grown (an HD texture pack's, resolution.c res_heapdef_tex_grown) is not the base: its
@@ -899,7 +899,7 @@ static void heapdef_overlay(void) {
     if (ok && serve_generated(HEAPDEF, base, out, out_n, "resolution", "grown heaps", keeps)) res_heapdef_served();
 }
 
-// The player camera's pack with its stick speeds multiplied by TOTK_STICK_SENS (camera_speed.c). The base is an
+// The player camera's pack with its stick speeds multiplied by MRPG_STICK_SENS (camera_speed.c). The base is an
 // overlay that replaces the pack (a mod's camera stays), else the RomFS original; the dictionary is the RomFS's own.
 #define CAMPACK "Pack/Actor/PlayerCamera.pack.zs"
 static void camera_overlay(void) {
@@ -958,7 +958,7 @@ static void overlay_drop(size_t a, size_t b) {
 }
 
 static void overlay_init(void) {
-    // TOTK_ROMFS_PATCHES unset: romfs-patches next to romfs-index.bin if it has a manifest (tools/make_romfs_patches.py).
+    // MRPG_ROMFS_PATCHES unset: romfs-patches next to romfs-index.bin if it has a manifest (tools/make_romfs_patches.py).
     // A game resolution that is not 16:9 takes romfs-patches-<w>x<h> instead when it is there: the same overlay with
     // the UI laid out for that shape (make_romfs_patches.py --aspect), when the game version has the camera aspect patch
     // the layout goes with (res_wants_wide_overlay).
@@ -968,12 +968,12 @@ static void overlay_init(void) {
     // layout itself changes live. Each folder replaces romfs-patches as a whole. At a game resolution of another shape
     // the prompts come from <folder>-<w>x<h> (make_romfs_patches.py --prompts <style> --aspect): it carries that
     // shape's UI layout too, so it replaces romfs-patches-<w>x<h> as the folder replaces romfs-patches. Without it the
-    // Switch prompts stay with the shape's layout. So they do when a RomFS mod (the TOTK_ROMFS_MODS manifest or a
+    // Switch prompts stay with the shape's layout. So they do when a RomFS mod (the MRPG_ROMFS_MODS manifest or a
     // player mod) replaces one of the prompts' fonts: romfs-patches loads in their place, so the mod's file is not
     // served beside prompts files made for the game's own. A mod's resource size table is no clash: restbl_overlay
     // merges it with the prompts' one.
     char def[2100], path[2100];
-    const char *patches = cfg_get("TOTK_ROMFS_PATCHES"), *mods = cfg_get("TOTK_ROMFS_MODS");
+    const char *patches = cfg_get("MRPG_ROMFS_PATCHES"), *mods = cfg_get("MRPG_ROMFS_MODS");
     int wide = 0;
     unsigned out[2];
     res_wanted(out);
@@ -997,8 +997,8 @@ static void overlay_init(void) {
         prompts_folders[i].ready =
             snprintf(path, sizeof path, "%s/%s/manifest.tsv", index_dir, dir) < (int)sizeof path && plat_file_exists(path);
     }
-    const char *layout = cfg_value("TOTK_PAD_LAYOUT");
-    int pick = input_prompts_pick(cfg_get("TOTK_PROMPTS"), layout);
+    const char *layout = cfg_value("MRPG_PAD_LAYOUT");
+    int pick = input_prompts_pick(cfg_get("MRPG_PROMPTS"), layout);
     const char *style = pick == PROMPTS_PC ? "keyboard and mouse" : "Xbox";
     prompts_wanted = input_prompts_folder(pick, layout);
     const char *wanted_dir = prompts_wanted;   // the folder its files come from
@@ -1028,7 +1028,7 @@ static void overlay_init(void) {
                      "--aspect %ux%u)", wanted_dir, prompts_wanted + strlen("romfs-patches-"), out[0], out[1]);
         else
             snprintf(why, sizeof why, "%s", prompts_off == ROMFS_PROMPTS_PATCHES
-                                                ? "TOTK_ROMFS_PATCHES is set"
+                                                ? "MRPG_ROMFS_PATCHES is set"
                                                 : "their folder has no manifest.tsv (run the setup again)");
         rt_log("RomFS overlay: prompts = %s, but %s; Switch prompts stay", pick == PROMPTS_PC ? "pc" : "xbox", why);
     }
@@ -1067,9 +1067,9 @@ static void overlay_init(void) {
 }
 
 // ---- start
-// romfs-index.bin next to totk.exe, or TOTK_ROMFS_INDEX.
+// romfs-index.bin next to mrpg.exe, or MRPG_ROMFS_INDEX.
 static void index_path(char *out, size_t cap) {
-    const char *e = cfg_get("TOTK_ROMFS_INDEX");
+    const char *e = cfg_get("MRPG_ROMFS_INDEX");
     if (e && *e) {
         need(snprintf(out, cap, "%s", e) < (int)cap, "index path");
         return;
@@ -1110,7 +1110,7 @@ static void load_index(void) {
     else strcpy(index_dir, ".");
     uint64_t sz = 0;
     index_bytes = plat_file_read(path, &sz);
-    if (!index_bytes) rt_fatal("RomFS index %s missing (tools/build_game.py writes it next to totk.exe)", path);
+    if (!index_bytes) rt_fatal("RomFS index %s missing (tools/build_game.py writes it next to mrpg.exe)", path);
     need(sz >= 24 && sz < (128 << 20), "index size");
     index_size = (size_t)sz;
     uint8_t d[32];
@@ -1120,7 +1120,7 @@ static void load_index(void) {
     if (strcmp(hex, ROMFS_INDEX_SHA256))
         rt_fatal("RomFS index %s has SHA-256 %s, this build expects %s (rebuild with tools/build_game.py)", path, hex,
                  ROMFS_INDEX_SHA256);
-    need(!memcmp(index_bytes, "TOTKRFS1", 8), "index format");
+    need(!memcmp(index_bytes, "MRPGRFS1", 8), "index format");
     memcpy(&file_count, index_bytes + 8, 8);
     memcpy(&strings_offset, index_bytes + 16, 8);
     need(file_count == ROMFS_FILE_COUNT && file_count < 1000000 && strings_offset == 24 + file_count * 24 &&
@@ -1149,7 +1149,7 @@ static void init_once(void *param) {
     const char *dir = rt_config()->romfs;
     need(snprintf(image_file, sizeof image_file, "%s/romfs.bin", dir) < (int)sizeof image_file, "image path");
     image = open_read(image_file);
-    if (!image) rt_fatal("RomFS image %s missing; put romfs.bin into the romfs folder next to totk or set TOTK_ROMFS",
+    if (!image) rt_fatal("RomFS image %s missing; put romfs.bin into the romfs folder next to mrpg or set MRPG_ROMFS",
                          image_file);
     PlatFileId sz;
     need(plat_file_id(image, &sz), "image size");
@@ -1158,7 +1158,7 @@ static void init_once(void *param) {
                  (unsigned long long)sz.size, (unsigned long long)ROMFS_IMAGE_SIZE);
     rt_log("RomFS image %s: size ok (%llu bytes)", image_file, (unsigned long long)ROMFS_IMAGE_SIZE);
     verify_image(index_dir);
-    const char *mm = cfg_get("TOTK_ROMFS_MMAP");
+    const char *mm = cfg_get("MRPG_ROMFS_MMAP");
     if (mm && strcmp(mm, "0")) {
         const void *v = plat_file_map(image);
         if (v) {

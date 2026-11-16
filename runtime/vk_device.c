@@ -21,7 +21,7 @@ static PlatMutex g_lock = PLAT_MUTEX_INIT;
 // the debug messenger. The newest AB_N events stay in a ring written without a lock (one atomic add each), so a device
 // fault names the object behind its address and whether it was unbound before the fault, which is memory freed while
 // a submission still used it. One event per image, buffer or memory block made or freed, none per draw.
-// TOTK_ADDR_REPORT=0 turns it off.
+// MRPG_ADDR_REPORT=0 turns it off.
 #define AB_N (1u << 15)
 typedef struct { uint64_t seq, base, size, handle, issued, done; int32_t type; uint32_t unbind; } AbEvent;
 static AbEvent *ab_ring;
@@ -131,20 +131,20 @@ static int create_instance(void) {
     const char *ext[12];
     uint32_t n_ext = (uint32_t)gfx_window_vk_extensions(ext, 7);
     const char *layers[] = {"VK_LAYER_KHRONOS_validation"};
-    int validate = cfg_bool("TOTK_VK_VALIDATION");
+    int validate = cfg_bool("MRPG_VK_VALIDATION");
     if (validate && !layer_present(layers[0])) {
-        rt_log("vk: TOTK_VK_VALIDATION set but %s is not installed; continuing without", layers[0]);
+        rt_log("vk: MRPG_VK_VALIDATION set but %s is not installed; continuing without", layers[0]);
         validate = 0;
     }
-    const char *ar = cfg_get("TOTK_ADDR_REPORT");
+    const char *ar = cfg_get("MRPG_ADDR_REPORT");
     ab_want = !(ar && !strcmp(ar, "0")) && instance_ext_present(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     if (ab_want && !ab_ring && !(ab_ring = calloc(AB_N, sizeof *ab_ring))) ab_want = 0;
     if (validate || ab_want) ext[n_ext++] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
     if (vk_hdr_wanted() && instance_ext_present(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME))   // HDR10 surface formats
         ext[n_ext++] = VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME;
     vk_dlaa_instance_exts(ext, &n_ext, 12);
-    VkApplicationInfo app = {.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO, .pApplicationName = "TotK Recomp",
-                             .pEngineName = "TotK Recomp", .apiVersion = VK_API_VERSION_1_3};
+    VkApplicationInfo app = {.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO, .pApplicationName = "MRPG Recomp",
+                             .pEngineName = "MRPG Recomp", .apiVersion = VK_API_VERSION_1_3};
     VkInstanceCreateInfo ci = {.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO, .pApplicationInfo = &app,
                                .enabledExtensionCount = n_ext, .ppEnabledExtensionNames = ext,
                                .enabledLayerCount = validate ? 1 : 0, .ppEnabledLayerNames = layers};
@@ -200,17 +200,17 @@ static int name_has(const char *s, const char *sub) {
     return 0;
 }
 
-// First discrete GPU with Vulkan 1.3, the required extensions and a graphics+present queue; TOTK_GPU_INDEX (index) or
-// TOTK_GPU_NAME (case-insensitive part of the name) overrides.
+// First discrete GPU with Vulkan 1.3, the required extensions and a graphics+present queue; MRPG_GPU_INDEX (index) or
+// MRPG_GPU_NAME (case-insensitive part of the name) overrides.
 static int pick_device(void) {
     uint32_t n = 0;
     vkEnumeratePhysicalDevices(g_vk.instance, &n, NULL);
     if (!n) { rt_log("vk: no Vulkan device"); return 0; }
     VkPhysicalDevice *pd = calloc(n, sizeof *pd);
     vkEnumeratePhysicalDevices(g_vk.instance, &n, pd);
-    const char *e = cfg_get("TOTK_GPU_INDEX");   // no fixed default: the best device when unset
+    const char *e = cfg_get("MRPG_GPU_INDEX");   // no fixed default: the best device when unset
     int want = e && *e ? atoi(e) : -1;
-    const char *name = cfg_get("TOTK_GPU_NAME");
+    const char *name = cfg_get("MRPG_GPU_NAME");
     int best = -1, best_score = -1;
     for (uint32_t i = 0; i < n; i++) {
         VkPhysicalDeviceProperties p;
@@ -234,8 +234,8 @@ static int pick_device(void) {
         if (score > best_score) { best_score = score; best = (int)i; }
     }
     if (best < 0) {
-        if (want >= 0) rt_log("vk: TOTK_GPU_INDEX=%d is not usable (see above)", want);
-        else if (name && *name) rt_log("vk: no usable gpu matches TOTK_GPU_NAME=%s (see above)", name);
+        if (want >= 0) rt_log("vk: MRPG_GPU_INDEX=%d is not usable (see above)", want);
+        else if (name && *name) rt_log("vk: no usable gpu matches MRPG_GPU_NAME=%s (see above)", name);
         else rt_log("vk: no device with Vulkan 1.3 and the required extensions (see above)");
         free(pd);
         return 0;
@@ -345,7 +345,7 @@ static int create_device(void) {
     }
     // GPU breadcrumbs for a lost device (vk_crumbs.c): AMD's drivers and RADV report it.
     if (has_ext(ep, ne, VK_AMD_BUFFER_MARKER_EXTENSION_NAME)) { g_vk.has_buffer_marker = 1; ext[n_ext++] = VK_AMD_BUFFER_MARKER_EXTENSION_NAME; }
-    // Pass marks on NVIDIA (vk_crumbs.c): checkpoints only with TOTK_PASS_CRUMBS=1, since NVIDIA documents a cost for
+    // Pass marks on NVIDIA (vk_crumbs.c): checkpoints only with MRPG_PASS_CRUMBS=1, since NVIDIA documents a cost for
     // the extension. NVIDIA's drivers report it, AMD's do not.
     if (vk_pass_marks_want_nv() && has_ext(ep, ne, VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME)) {
         g_vk.has_nv_checkpoints = 1;
@@ -388,19 +388,19 @@ static int create_device(void) {
     if (miss) { rt_log("vk: required feature missing on %s: %s", g_vk.props.deviceName, miss); free(c); return 0; }
     if (!c->fault.deviceFault) g_vk.has_device_fault = 0;   // vkGetDeviceFaultInfoEXT needs the feature, not just the extension
     rt_log("vk: GPU address map for device faults: %s",
-           has_abr && c->abr.reportAddressBinding ? "on (VK_EXT_device_address_binding_report; TOTK_ADDR_REPORT=0 turns it off)"
-           : !ab_want ? "off (TOTK_ADDR_REPORT=0 or no VK_EXT_debug_utils)"
+           has_abr && c->abr.reportAddressBinding ? "on (VK_EXT_device_address_binding_report; MRPG_ADDR_REPORT=0 turns it off)"
+           : !ab_want ? "off (MRPG_ADDR_REPORT=0 or no VK_EXT_debug_utils)"
                       : "unavailable (no VK_EXT_device_address_binding_report)");
     g_vk.has_buffer_device_address = c->f12.bufferDeviceAddress;
     g_vk.has_astc_ldr = h->textureCompressionASTC_LDR;
     {
-        const char *e = cfg_get("TOTK_FEEDBACK");
+        const char *e = cfg_get("MRPG_FEEDBACK");
         int layout_ok = has_fbl && has_lr && c->fbl.attachmentFeedbackLoopLayout && c->lr.dynamicRenderingLocalRead;
         g_vk.feedback = e && !strcmp(e, "0") ? VK_FEEDBACK_OFF
                       : layout_ok && !(e && !strcmp(e, "restart")) ? VK_FEEDBACK_LAYOUT : VK_FEEDBACK_RESTART;
         rt_log("vk: feedback loops: %s (attachmentFeedbackLoopLayout %d, dynamicRenderingLocalRead %d)",
                g_vk.feedback == VK_FEEDBACK_LAYOUT ? "feedback layout + by-region barrier"
-               : g_vk.feedback == VK_FEEDBACK_RESTART ? "pass restart + full barrier" : "off (TOTK_FEEDBACK=0)",
+               : g_vk.feedback == VK_FEEDBACK_RESTART ? "pass restart + full barrier" : "off (MRPG_FEEDBACK=0)",
                has_fbl && c->fbl.attachmentFeedbackLoopLayout, has_lr && c->lr.dynamicRenderingLocalRead);
     }
 
@@ -429,11 +429,11 @@ static int create_device(void) {
     g_vk.min_imported_host_alignment = (uint32_t)emh.minImportedHostPointerAlignment;
     vk_caps_init(&g_vk);
 
-    // Blocks of 64 MiB instead of VMA's 256 (TOTK_VMA_BLOCK_MIB, 0 = VMA's). Since the textures moved to their own pool
+    // Blocks of 64 MiB instead of VMA's 256 (MRPG_VMA_BLOCK_MIB, 0 = VMA's). Since the textures moved to their own pool
     // (vk_memory.c vk_texture_image), the default device-local blocks hold mirrors and other buffers: on the RX 9070
     // after 10 minutes in the field one 256 MiB block held 53 MiB of them, and the headroom thread kept half a block of
     // each device-local type ahead (128 MiB each). Larger buffers than half a block get memory of their own.
-    g_vk.vma_block = (VkDeviceSize)cfg_int("TOTK_VMA_BLOCK_MIB") << 20;
+    g_vk.vma_block = (VkDeviceSize)cfg_int("MRPG_VMA_BLOCK_MIB") << 20;
     if (!g_vk.vma_block) g_vk.vma_block = 256ull << 20;   // VMA_DEFAULT_LARGE_HEAP_BLOCK_SIZE
     VmaAllocatorCreateInfo ai = {.physicalDevice = g_vk.phys, .device = g_vk.device, .instance = g_vk.instance,
                                  .vulkanApiVersion = VK_API_VERSION_1_3, .preferredLargeHeapBlockSize = g_vk.vma_block,

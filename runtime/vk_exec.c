@@ -45,7 +45,7 @@ static VkExec X;
 static int x_ready;
 static _Thread_local VkExec *x_cur;   // the context this thread records with (vk_exec_inline_begin), NULL outside
 
-// ---- TOTK_TRACE=gfx frame counters
+// ---- MRPG_TRACE=gfx frame counters
 
 VkExecFrame vk_exec_frame;
 static struct { const uint8_t *mem; uint32_t w, h, fmt, n; } fw[64];   // textures written this frame
@@ -164,7 +164,7 @@ static int view_format(const tex_t *t, const view_t *v, int blocks, VkFormat *ou
 }
 
 // ---- 3D BC render targets
-// A 3D BC texture has no block views (vk_texture.c create_tex, TOTK_BLOCK_VIEWS_3D): on RDNA2 cards such an image
+// A 3D BC texture has no block views (vk_texture.c create_tex, MRPG_BLOCK_VIEWS_3D): on RDNA2 cards such an image
 // made BLOCK_TEXEL_VIEW_COMPATIBLE and 2D_ARRAY_COMPATIBLE took GPU writes past the end of its memory (issue #5). Draws
 // into it through an uncompressed view of its blocks (agl's BC4 encoder fills 32x32x32 and 64x64x64 volumes and their
 // levels at the logo) go to a stand-in: a 2D array of the blocks of one level in the view's format, one layer per
@@ -892,13 +892,13 @@ static void set_rt(VkExec *ex, const p_set_rt *r) {
 
 // ---- command buffer parts
 // NVN starts the GPU as soon as commands are submitted; one Vulkan command buffer per submission starts it only after
-// the whole replay. Between passes, once TOTK_SPLIT_DRAWS (64; 0 off) draws and dispatches were recorded since the
+// the whole replay. Between passes, once MRPG_SPLIT_DRAWS (64; 0 off) draws and dispatches were recorded since the
 // last part, the part goes to the queue (vk_sync_split) and the replay continues in a new command buffer. Only
 // command-buffer state is lost there (bindings and dynamic state: vk_exec_draw_new_cb, ex->dirty); barriers, layouts and
 // queries are not: a barrier's first scope is everything earlier in submission order, image layouts belong to the image,
 // and occlusion queries end with their pass. Fences, completion callbacks and reports stay per submission: only the last
 // part signals the value. nxnative commits every 64 draws between passes; MacNativeGames after 30, then every 40.
-// A part also spans at least TOTK_SPLIT_US (1000) of replay time: a split costs about 40 us of the render thread
+// A part also spans at least MRPG_SPLIT_US (1000) of replay time: a split costs about 40 us of the render thread
 // (vkQueueSubmit2, a command buffer, the mirror prologue), and a fight frame of 2,000 draws made 15 parts on the 7900X;
 // a millisecond of recording is a fraction of a millisecond of GPU work, so the GPU still starts early.
 static int split_n = -1;
@@ -907,9 +907,9 @@ static uint64_t n_parts, n_subs;
 
 static void maybe_split(VkExec *ex) {
     if (split_n < 0) {
-        split_n = cfg_int("TOTK_SPLIT_DRAWS");
+        split_n = cfg_int("MRPG_SPLIT_DRAWS");
         if (split_n < 0) split_n = 0;
-        int us = cfg_int("TOTK_SPLIT_US");
+        int us = cfg_int("MRPG_SPLIT_US");
         split_ns = us > 0 ? (uint64_t)us * 1000 : 0;
         rt_log("vk: replay command buffer split every %d draws between passes, parts of at least %d us%s", split_n,
                us > 0 ? us : 0, split_n ? "" : " (off)");
@@ -1057,9 +1057,9 @@ static int walk(VkExec *ex, const op_hdr *h, int depth, const op_hdr *stop) {
     }
 }
 
-// ---- chunked recording (TOTK_REPLAY_WORKERS)
-// A submission is recorded in chunks that start between passes, by TOTK_REPLAY_WORKERS threads (0: the sequential
-// replay, the default) and twice as many chunks (TOTK_REPLAY_CHUNKS), so a thread
+// ---- chunked recording (MRPG_REPLAY_WORKERS)
+// A submission is recorded in chunks that start between passes, by MRPG_REPLAY_WORKERS threads (0: the sequential
+// replay, the default) and twice as many chunks (MRPG_REPLAY_CHUNKS), so a thread
 // that finishes early takes another: in the town at 4K on an RTX 5070 the replay goes from 8.2 to 4.5 ms
 // and the frame rate from 71 to 79; more threads add little, since the frame then waits for the GPU. A sequential scan on
 // the submitting thread applies only what is queue state: the fixed-function and bind ops, render targets, render
@@ -1086,7 +1086,7 @@ static int walk(VkExec *ex, const op_hdr *h, int depth, const op_hdr *stop) {
 // would follow another texture at the storage or copy over what the earlier chunk renders, so the chunks after the
 // first use wait until that chunk is recorded (SC.holds). TotK makes a few such targets a frame: thumbnails, and depth
 // targets whose size follows the camera; a wrong one darkened the whole scene for some frames.
-// TOTK_REPLAY_STATE_CHECK=1 compares the state after the last chunk with the scan's.
+// MRPG_REPLAY_STATE_CHECK=1 compares the state after the last chunk with the scan's.
 #define MAX_JOBS 64
 #define MAX_RECS 16
 
@@ -1117,7 +1117,7 @@ typedef struct { uint64_t addr, size; uint32_t at; } ScanDrop;
 
 static struct {
     int workers, chunks, min_draws, check;
-    int skew_us;                         // TOTK_REPLAY_SKEW_US (chunk_record)
+    int skew_us;                         // MRPG_REPLAY_SKEW_US (chunk_record)
     VkExec s;                            // the scan's state
     Chunk *ch;                           // chunks + 1 entries, never moved while threads record
     int nch;
@@ -1138,12 +1138,12 @@ static struct {
     int per, open, in_chunk;             // scan: draws for this chunk, a pass of the replay may be open, draws in it
     int sub;                             // chunks submitted
     uint64_t t0;                         // the submission's start
-    // TOTK_TRACE=perf, per chunked submission: the scan, the first and the last chunk submitted after t0, the chunks'
+    // MRPG_TRACE=perf, per chunked submission: the scan, the first and the last chunk submitted after t0, the chunks'
     // recording summed and the longest
     uint64_t subs, chunked, nchunks, scan_ns, first_ns, last_ns, rec_ns, rec_max_ns, bad, prep_ns, start0_ns;
     uint64_t rec_t0;                     // vk_exec_record's start
-    uint64_t held[HOLD_N];               // TOTK_TRACE=perf: chunks held, by scan_hold's reason
-    uint64_t settles, settle_ns;         // TOTK_TRACE=perf: vk_exec_chunk_settle waits (atomic: recording threads)
+    uint64_t held[HOLD_N];               // MRPG_TRACE=perf: chunks held, by scan_hold's reason
+    uint64_t settles, settle_ns;         // MRPG_TRACE=perf: vk_exec_chunk_settle waits (atomic: recording threads)
     uint64_t mirror_ns, usnap_ns, ready_ns;   // vk_mem_mirror_begin, vk_usnap_begin, both done after t0
 } SC = {.workers = -1};
 
@@ -1246,7 +1246,7 @@ static void chunks_publish(int final) {
     take_publish(avail, final);
 }
 
-// TOTK_TRACE=perf counts the chunks held per reason (SC.held).
+// MRPG_TRACE=perf counts the chunks held per reason (SC.held).
 static void scan_hold(int why) {
     if (SC.nch <= 0 || SC.nch > 64 || SC.holds >> (SC.nch - 1) & 1) return;
     SC.holds |= 1ull << (SC.nch - 1);
@@ -1325,7 +1325,7 @@ static VkCommandBuffer rec_cb(Rec *r, uint64_t fence) {
 // Chunk k on the calling thread with context r: from its state copy up to the next chunk's first op, into a command
 // buffer of r's pool, ending with every image in GENERAL.
 static void chunk_record(Rec *r, int k) {
-    // TOTK_REPLAY_SKEW_US (debug): the even chunks wait this long before they record, so with several threads the
+    // MRPG_REPLAY_SKEW_US (debug): the even chunks wait this long before they record, so with several threads the
     // chunk after each one records first. A recording that depends on the order the threads get to the chunks, rather
     // than on replay order, then shows in every submission instead of a few launches in thirty.
     if (SC.skew_us > 0 && nthreads && !(k & 1)) plat_sleep_ns((uint64_t)SC.skew_us * 1000);
@@ -1393,7 +1393,7 @@ static void rec_main(void *arg) {
     }
 }
 
-// TOTK_REPLAY_WORKERS threads record; with one, the submitting thread does.
+// MRPG_REPLAY_WORKERS threads record; with one, the submitting thread does.
 static void recs_start(void) {
     if (nrecs) return;
     nthreads = SC.workers > 1 ? (SC.workers < MAX_RECS ? SC.workers : MAX_RECS) : 0;
@@ -1666,15 +1666,15 @@ void vk_exec_contexts(void (*fn)(VkExec *ex)) {
 
 static int chunked_on(void) {
     if (SC.workers < 0) {
-        SC.workers = cfg_int("TOTK_REPLAY_WORKERS");
+        SC.workers = cfg_int("MRPG_REPLAY_WORKERS");
         if (SC.workers < 0) SC.workers = 0;
-        SC.chunks = cfg_int("TOTK_REPLAY_CHUNKS");
+        SC.chunks = cfg_int("MRPG_REPLAY_CHUNKS");
         if (SC.chunks <= 0) SC.chunks = 2 * SC.workers;
-        SC.min_draws = cfg_int("TOTK_REPLAY_CHUNK_DRAWS");
-        SC.check = cfg_bool("TOTK_REPLAY_STATE_CHECK");
-        SC.skew_us = cfg_int("TOTK_REPLAY_SKEW_US");
+        SC.min_draws = cfg_int("MRPG_REPLAY_CHUNK_DRAWS");
+        SC.check = cfg_bool("MRPG_REPLAY_STATE_CHECK");
+        SC.skew_us = cfg_int("MRPG_REPLAY_SKEW_US");
         if (SC.workers && SC.skew_us > 0)
-            rt_log("vk: TOTK_REPLAY_SKEW_US: the even chunks wait %d us before they record", SC.skew_us);
+            rt_log("vk: MRPG_REPLAY_SKEW_US: the even chunks wait %d us before they record", SC.skew_us);
         if (SC.workers)
             rt_log("vk: replay in up to %d chunks per submission of at least %d draws each, %d recording thread%s%s",
                    SC.chunks, SC.min_draws, SC.workers, SC.workers > 1 ? "s" : "", SC.check ? ", state checked" : "");

@@ -37,7 +37,7 @@
   risky (device lost or a TDR can hang the machine), write the recipe and let the owner decide.
 - **Frame-path changes** get whole runs of the heavy scene with the switch off and on, at least two each
   ([02-performance.md](02-performance.md)). Zero new slow frames is a hard bar.
-- **A switch.** A change on the hot path or in rendering sits behind an env or `totk.ini` switch, so a player can turn
+- **A switch.** A change on the hot path or in rendering sits behind an env or `mrpg.ini` switch, so a player can turn
   it off and we can compare.
 - **Nothing changes for players outside the feature.** The DLSS PRs touched shared code; they went in once every
   path that runs without DLSS was gated on DLSS being on.
@@ -50,7 +50,7 @@
 - **Text the player sees** goes into the catalog: `runtime/ui_text.h` ids and `runtime/ui_text.c` entries in every
   language the menu has (English, Russian, Brazilian Portuguese, Simplified Chinese), and `installer/text/*.json` for
   the installer. No hardcoded sentences, no second string table.
-- **A new setting** is described in `totk.ini.example` and [docs/settings.md](../../docs/settings.md).
+- **A new setting** is described in `mrpg.ini.example` and [docs/settings.md](../../docs/settings.md).
 - **Licences.** MIT, BSD, ISC, zlib and Apache-2.0 code may be copied, with its header and a row in
   `THIRD_PARTY_NOTICES.md`. yuzu, suyu and other GPL code is read for behaviour only; we write our own.
 

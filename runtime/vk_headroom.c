@@ -15,7 +15,7 @@
 // is allocated. The same holds when the system runs short of memory (room), and for HR_HOLD_MS after an allocation
 // failed anywhere (vk_headroom_release).
 // The texture pool (vk_memory.c vk_texture_image) is kept ahead the same way, with its own anchor of half its block.
-// TOTK_VRAM_HEADROOM=0 turns it off.
+// MRPG_VRAM_HEADROOM=0 turns it off.
 
 #include "cfg.h"
 #include "host.h"
@@ -57,7 +57,7 @@ static void VKAPI_PTR on_allocate(VmaAllocator a, uint32_t type, VkDeviceMemory 
 
 const VmaDeviceMemoryCallbacks *vk_headroom_callbacks(void) {
     static const VmaDeviceMemoryCallbacks cb = {.pfnAllocate = on_allocate};
-    H.on = !cfg_get("TOTK_VRAM_HEADROOM") || cfg_bool("TOTK_VRAM_HEADROOM");
+    H.on = !cfg_get("MRPG_VRAM_HEADROOM") || cfg_bool("MRPG_VRAM_HEADROOM");
     return H.on ? &cb : NULL;
 }
 
@@ -184,5 +184,5 @@ void vk_headroom_start(void) {
     }
     H.started = 1;
     rt_log("vk: headroom: the next VMA block of each memory type in use is allocated on a background thread "
-           "(TOTK_VRAM_HEADROOM=0 turns it off)");
+           "(MRPG_VRAM_HEADROOM=0 turns it off)");
 }

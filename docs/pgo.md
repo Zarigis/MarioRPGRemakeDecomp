@@ -46,16 +46,16 @@ $llvm = "toolchain\llvm-mingw-<date>\llvm-mingw-<date>-ucrt-x86_64"
 .venv\Scripts\python tools\build_game.py --version v143 --out build\v143-pgogen --toolchain $llvm --pgo gen
 ```
 
-Regenerate `generated\<ver>` first if it is older than the commit you train on. If `totk.exe` stops at start with
+Regenerate `generated\<ver>` first if it is older than the commit you train on. If `mrpg.exe` stops at start with
 `0xc000007b`, copy `libiconv-2.dll` from `C:\msys64\ucrt64\bin` next to it.
 
-`totk.exe` writes `build\v143-pgogen\pgo\default_<id>.profraw` every minute and at exit. Each run of the same exe adds
+`mrpg.exe` writes `build\v143-pgogen\pgo\default_<id>.profraw` every minute and at exit. Each run of the same exe adds
 to that file.
 
 ### 2. Shaders
 
-Copy your `totk.ini` into the build folder and prepare the shaders (`tools\prepare_shaders.py build\v143-pgogen
---version v143`). Shader preparation runs `totk.exe` too, so move `pgo\*.profraw` out of the build folder afterwards:
+Copy your `mrpg.ini` into the build folder and prepare the shaders (`tools\prepare_shaders.py build\v143-pgogen
+--version v143`). Shader preparation runs `mrpg.exe` too, so move `pgo\*.profraw` out of the build folder afterwards:
 its counts describe shader building, not play.
 
 Keep the default settings, with the GPU command recorder on (`vk_recorder = 1`, the default).

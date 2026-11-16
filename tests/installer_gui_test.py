@@ -5,7 +5,7 @@ run.
 
 The end-to-end test runs the real CLI in --verify mode on a finished install (every step skips) and folds its events
 through the same code the window uses (the fixture's step keys are recomputed for the checkout under test, because the keys fingerprint recomp/, tools/ and runtime/). The install is build/inst-gui/e2e-install: hard links to build/install-test, so
-nothing there is written, except the state file and totk.ini, which a run rewrites and which are copied. The run hashes
+nothing there is written, except the state file and mrpg.ini, which a run rewrites and which are copied. The run hashes
 the 17 GB RomFS; it is skipped when the hash differs from the expected one in all three tries. On the developer machine
 (RAM with a bad bit) a buffered read of a file sometimes returns flipped bits from the page cache while the file on
 disk is intact (an unbuffered read of install-test's romfs.bin gives the expected hash), so such a skip is the machine,
@@ -45,7 +45,7 @@ from installer.guilogic import (DONE, FAILED, PENDING, RUNNING, SKIPPED, UI_LANG
 
 INSTALLED = ROOT / 'build' / 'install-test'
 FIXTURE = ROOT / 'build' / 'inst-gui' / 'e2e-install'
-COPIED = ('totk.ini', statefile.NAME)   # written by a run, so never linked
+COPIED = ('mrpg.ini', statefile.NAME)   # written by a run, so never linked
 START = {'type': 'start', 'release': 'r1', 'mode': 'install', 'dest': 'D:\\T', 'log': 'D:\\T.log',
          'steps': ['check', 'fonts', 'extract', 'lift', 'compile', 'prepare', 'cleanup']}
 
@@ -541,9 +541,9 @@ class PrefillTest(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.tmp, True)
-        self.update = self.tmp / 'totk-1.4.3.nsp'
+        self.update = self.tmp / 'mrpg-1.4.3.nsp'
         self.update.write_bytes(b'x' * 10)
-        self.base = self.tmp / 'totk.xci'
+        self.base = self.tmp / 'mrpg.xci'
         self.base.write_bytes(b'y' * 20)
         self.app = SimpleNamespace(vars={n: FakeVar() for n in ('base', 'update')}, touched=set(),
                                    recorded={'base': str(self.base), 'update': str(self.update)})
@@ -552,22 +552,22 @@ class PrefillTest(unittest.TestCase):
             self.app.vars[name].set(value)
 
     def state(self, update_name, update_size, base_size=20):
-        return {'inputs': {'base': {'name': 'totk.xci', 'size': base_size},
+        return {'inputs': {'base': {'name': 'mrpg.xci', 'size': base_size},
                            'update': {'name': update_name, 'size': update_size}}}
 
     def shown(self):
         return {n: v.get() for n, v in self.app.vars.items()}
 
     def test_same_install_keeps(self):
-        gui.App.match_prefill(self.app, self.state('totk-1.4.3.nsp', 10))
+        gui.App.match_prefill(self.app, self.state('mrpg-1.4.3.nsp', 10))
         self.assertEqual(self.shown(), {'base': str(self.base), 'update': str(self.update)})
 
     def test_other_install_clears_and_restores(self):
-        gui.App.match_prefill(self.app, self.state('totk-1.2.1.nsp', 10))
+        gui.App.match_prefill(self.app, self.state('mrpg-1.2.1.nsp', 10))
         self.assertEqual(self.shown(), {'base': str(self.base), 'update': ''})
-        gui.App.match_prefill(self.app, self.state('totk-1.4.3.nsp', 99))   # same name, other size
+        gui.App.match_prefill(self.app, self.state('mrpg-1.4.3.nsp', 99))   # same name, other size
         self.assertEqual(self.shown()['update'], '')
-        gui.App.match_prefill(self.app, self.state('totk-1.4.3.nsp', 10))
+        gui.App.match_prefill(self.app, self.state('mrpg-1.4.3.nsp', 10))
         self.assertEqual(self.shown()['update'], str(self.update))
 
     def test_install_without_recorded_inputs_clears(self):
@@ -577,7 +577,7 @@ class PrefillTest(unittest.TestCase):
     def test_user_picked_field_survives(self):
         self.app.vars['update'].set('C:/mine/other.nsp')
         self.app.touched.add('update')
-        gui.App.match_prefill(self.app, self.state('totk-1.2.1.nsp', 10, base_size=1))
+        gui.App.match_prefill(self.app, self.state('mrpg-1.2.1.nsp', 10, base_size=1))
         self.assertEqual(self.shown(), {'base': '', 'update': 'C:/mine/other.nsp'})
 
     def test_fresh_install_keeps(self):
@@ -586,7 +586,7 @@ class PrefillTest(unittest.TestCase):
 
     def test_vanished_file_clears(self):
         self.update.unlink()
-        gui.App.match_prefill(self.app, self.state('totk-1.4.3.nsp', 10))
+        gui.App.match_prefill(self.app, self.state('mrpg-1.4.3.nsp', 10))
         self.assertEqual(self.shown()['update'], '')
 
 

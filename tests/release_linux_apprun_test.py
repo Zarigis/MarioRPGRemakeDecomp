@@ -5,7 +5,7 @@ in the user site shadows the project's own installer package and the window fail
 
 The test reads the export lines from AppRun, then runs Python with that environment against a fake user site holding
 a shadowing `installer` package (no `gui`) and a fake bundle holding the real layout. The bundle is added the way
-totk-release.pth adds it, after the user site, so the user site wins unless AppRun turns it off.
+mrpg-release.pth adds it, after the user site, so the user site wins unless AppRun turns it off.
 """
 import os
 import subprocess

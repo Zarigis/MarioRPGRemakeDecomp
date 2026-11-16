@@ -143,7 +143,7 @@ void playtime_init(void) {
 }
 
 // --probe-playtime: the file's parsing, a missing, a valid and a damaged file, the periodic save and the tick's cap, in
-// a directory next to totk.exe. Needs no game files.
+// a directory next to mrpg.exe. Needs no game files.
 static int fails;
 #define CHECK(c, what) do { if (!(c)) { fails++; fprintf(stderr, "FAIL playtime: %s\n", what); } } while (0)
 

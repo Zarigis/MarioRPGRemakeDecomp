@@ -4,14 +4,14 @@
 // into a packet of a ring, in call order, and the recorder makes the real call in that order; calls into any other
 // command buffer (uploads, the window, probes) are made at once. A call the ring has no packet for (a structure with a
 // pNext chain) waits for the recorder to empty the ring and is then made at once on the calling thread. With
-// TOTK_REC_END=1 (default) the recorder also begins, ends and submits the parts it records, so a part's command buffer
-// never changes threads. rec_submit queues the submission and returns at once (TOTK_REC_ASYNC=1, default; 0: once the
+// MRPG_REC_END=1 (default) the recorder also begins, ends and submits the parts it records, so a part's command buffer
+// never changes threads. rec_submit queues the submission and returns at once (MRPG_REC_ASYNC=1, default; 0: once the
 // recorder submitted it); every other user of the queue waits in vk_queue_lock until the recorder submitted what was
 // queued before (rec_queue_wait), so queue order stays the order of the calls. The submitting thread allocates from
 // the part pool only while the recorder is idle (vk_sync.c claim_slot).
 //
 // Every vkCmd* the runtime calls through vk.h goes through the rc_* wrappers below (the macros at the end); the
-// extension commands called through function pointers have rec_* wrappers of their own. TOTK_VK_RECORDER=0 makes every
+// extension commands called through function pointers have rec_* wrappers of their own. MRPG_VK_RECORDER=0 makes every
 // call at once (the same calls in the same order), =ab switches it with the A/B blocks (rt_ab), per submission part.
 //
 // The design follows Savage Wind Recomp's and LAS Recomp's recorder threads (LAS Recomp runtime/nvn/vulkan/record.c,
@@ -34,8 +34,8 @@ void rec_drain(void);                 // waits until the recorder made every cal
 // until the recorder submitted every submission queued so far.
 void rec_queue_wait(void);
 int rec_owns(VkCommandBuffer cb);     // the recorder makes cb's calls: a direct call into cb follows rec_drain
-void rec_stats_log(void);             // TOTK_TRACE=perf: packets, bytes, drains and waits since the last call
-// TOTK_REC_CHECK=1 (debug, recorder on): vk_memory.c reports each object it defers (destroy 0, stamped tl) or destroys
+void rec_stats_log(void);             // MRPG_TRACE=perf: packets, bytes, drains and waits since the last call
+// MRPG_REC_CHECK=1 (debug, recorder on): vk_memory.c reports each object it defers (destroy 0, stamped tl) or destroys
 // (destroy 1) with the value the GPU reached (gpu); a packet of the part being recorded that still names it is logged
 // as a hazard when the object can go before the part ran. rec_check_log: the counts by kind and packet, at exit.
 enum { REC_IMAGE, REC_VIEW, REC_BUFFER, REC_KINDS };

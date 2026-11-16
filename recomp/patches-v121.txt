@@ -3,13 +3,13 @@
 # (2db612b), each original word checked against the 1.2.1 main. The patch page holds two floats the runtime writes at
 # every present (frame_rate.c): +0 the 30 Hz ratio (seconds * 30), +4 the frame step in seconds.
 
-set fps60    TOTK_FPS60          1
-set realtime TOTK_REALTIME       1
-set cloth    TOTK_CLOTH_REALTIME 1
-set bounce   TOTK_HIGHFPS_FIX    1
-set output   TOTK_PATCH_OUTPUT   0
-set scene    TOTK_PATCH_SCENE    0
-set shadow   TOTK_PATCH_SHADOW   0
+set fps60    MRPG_FPS60          1
+set realtime MRPG_REALTIME       1
+set cloth    MRPG_CLOTH_REALTIME 1
+set bounce   MRPG_HIGHFPS_FIX    1
+set output   MRPG_PATCH_OUTPUT   0
+set scene    MRPG_PATCH_SCENE    0
+set shadow   MRPG_PATCH_SHADOW   0
 
 # 60 fps: the adaptive present-interval controller (main+0x8f26c8, 1.0.0 0x8f6bec) gets the minimum interval 1.
 site fps60 main 8f273c 6b08015f 7100055f   # clamp: cmp w10, #1 (was cmp w10, w8 = minimum)
@@ -67,7 +67,7 @@ site bounce main bda798 bd402900 bd402900 bd403901 1e210800   # ldr s0, [x8, #0x
 # g takes u = max(page +0, r): the patch page's 30 Hz frame ratio without the time scale (runtime/frame_rate.c), so
 # slow motion at 30 or 60 fps keeps the shipping factor and only a real frame rate above 60 raises it; the runtime
 # switches the set off without the real-time step, where the page is not written.
-set climb    TOTK_CLIMB_FIX      1
+set climb    MRPG_CLIMB_FIX      1
 site climb main 19182cc 1e2f1001 @page:x8 bd400111 1e296a31 1e2e1005 1e3138a5 52862508 72a7e308 1e270106 1e2608a5 1e2528a5 529a1ca8 72a7f448 1e270106 1e2628a5 1e201006 1e2678a5 52946dc8 72a7e528 1e270106 1e3118c6 52828248 72a7dfe8 1e270107 1e2728c6 529573e8 72a7b5a8 1e270107 1f1118e6 1e283a27 2f00e410 1e3068e7 1e261010 1f1098e6 1e241010 1e3078c6 1e2668a5 1e256800 1e2f1001 1e256821   # fmov s1, #1.5 -> s5 = h(r); s0 = max(s0, s5); s1 = max(1.5, s5)
 
 # Cursor and aim steps (upstream game_patches.c patch_cursor_speed, 363a6eb). These updates read the game's 30 Hz frame
@@ -75,7 +75,7 @@ site climb main 19182cc 1e2f1001 @page:x8 bd400111 1e296a31 1e2e1005 1e3138a5 52
 # 2x as fast at 60 fps and 4x at 120 as at the shipping 30 fps (issue #44). Each site multiplies the step by that ratio,
 # so the speed is the shipping one at any frame rate. x9 and s16 are free: the next read of x9 follows a write, the
 # function does not touch s16, and x20 keeps the update's frame object for the whole function.
-set cursor   TOTK_HIGHFPS_FIX    1
+set cursor   MRPG_HIGHFPS_FIX    1
 site cursor main ec3d9c bd400361 f94002e9 bd400930 1e300800 bd400361   # map pan speed s0 *= [[x23] + 8], then ldr s1, [x27]
 site cursor main 1d48d64 1e2a198c 1e2a198c bd400a90 1e30098c   # fdiv s12, s12, s10, then s12 *= [x20 + 8]: vertical Ultrahand aim
 site cursor main 1d484e4 1e200923 1e200923 bd400a90 1e300863   # fmul s3, s9, s0, then s3 *= [x20 + 8]: vertical gyro aim (Recall)
@@ -92,7 +92,7 @@ site cursor main 1d484e4 1e200923 1e200923 bd400a90 1e300863   # fmul s3, s9, s0
 # threshold by it, which is 1.4.3's test with both sides multiplied by the delta. s4 is free after the fdiv: the next
 # read follows a write in the callee main+0x11c2014. The context follows the measured step with the set realtime and is
 # the whole-vsync ratio without it (0.25 at 120 fps, 0.5 at 60 fps measured), so the set works either way.
-set gears    TOTK_HIGHFPS_FIX    1
+set gears    MRPG_HIGHFPS_FIX    1
 site gears main 21350e0 f9402001 bd40082c f9402001   # ldr x1, [x0, #0x40], after ldr s12, [x1, #8] (frame delta)
 site gears main 21352d0 1e24180c 1e241804 1e2c088c   # fdiv s12, s0, s4 -> fdiv s4, s0, s4; fmul s12, s4, s12
 
@@ -113,11 +113,11 @@ site scene main cc3f70 bd0cc660 2d420520    # str s0, [x19, #0xcc4] -> ldp s0, s
 site scene main cc3f74 5e21d921 bd0cc660    # scvtf s1, s9 -> str s0, [x19, #0xcc4]
 
 # Fixed scene size (MacNativeGames game_patches_v143.c patch_fixed_res, 1.4.3 main+0x5848a8; runtime/resolution.c
-# res_dynres_live switches the set on unless TOTK_DYNAMIC_RES=1). The game's dynamic resolution controller
+# res_dynres_live switches the set on unless MRPG_DYNAMIC_RES=1). The game's dynamic resolution controller
 # (main+0xcc26f4, called once per frame from the renderer at main+0xcc0fa0) steps the scene through tiers of 100, 90 and
 # 80 % by a cost model that grows with the scene width squared (runtime/resolution.c res_dynres_live), and the renderer stores scene width * tier / output width at +0xccc (main+0xcc1150).
 # Every path leaves through one epilogue, where the tier's scale moves into the result: 1.0 there makes every tier 100 %.
-set fixres   TOTK_FIXED_RES_PATCH 0
+set fixres   MRPG_FIXED_RES_PATCH 0
 site fixres main cc2c00 2a1703e9 52a7f009   # mov w9, w23 -> mov w9, #0x3f800000 (1.0f)
 
 # Camera aspect ratio for a game resolution that is not 16:9 (upstream game_patches.c, the 1.2.1 sites of aspect_install;
@@ -125,7 +125,7 @@ site fixres main cc2c00 2a1703e9 52a7f009   # mov w9, w23 -> mov w9, #0x3f800000
 # sites as patches-v143.txt, with the same original words: two camera sites (update and setup) load the camera's copy of
 # DefaultAspect 1.777778, two viewport routines divide width by height. The replacement loads the ratio from the page
 # instead (Hor+). x10 is kept on the stack, so no register liveness is assumed.
-set aspect   TOTK_ASPECT_PATCH   0
+set aspect   MRPG_ASPECT_PATCH   0
 site aspect main cb4b10 bd414260 f81f0fea @page:x10 bd403940 f84107ea   # ldr s0, [x19, #0x140] (camera update)
 site aspect main 12521cc bd414260 f81f0fea @page:x10 bd403940 f84107ea  # ldr s0, [x19, #0x140] (camera setup)
 site aspect main 19b36f0 1e211800 f81f0fea @page:x10 bd403940 f84107ea  # fdiv s0, s0, s1 (viewport)
@@ -134,11 +134,11 @@ site aspect main 1ecdf68 1e211800 f81f0fea @page:x10 bd403940 f84107ea  # fdiv s
 # Texture pool offsets past 2 GiB (MacNativeGames ca311e2d). The texture loader keeps a texture's place in its pool as a
 # 32-bit offset (main+0xad4294: sub x25, x9, x10, stored as the word w25) and widens it as a signed number for
 # nvnTextureBuilderSetStorage's offset and for SetPackagedTextureData's source (the pool's CPU address + offset). The
-# shipped heap table keeps every pool far below 2 GiB; a texture pack's heap table with TOTK_APP_POOL raised can make
+# shipped heap table keeps every pool far below 2 GiB; a texture pack's heap table with MRPG_APP_POOL raised can make
 # one larger (MacNativeGames saw a 3.58 GiB pool), and every texture past 2 GiB then got storage 4 GiB below its pool.
 # The offset is widened unsigned instead, the same value below 2 GiB, right up to 4 GiB. 1.4.3 needs no patch: its
 # loaders (main+0x583c34, main+0x27ed214) keep the offset in 64 bits.
-set pooloff  TOTK_POOL_OFFSET_PATCH 1
+set pooloff  MRPG_POOL_OFFSET_PATCH 1
 site pooloff main ad43f0 93407f22 2a1903e2   # sxtw x2, w25 -> mov w2, w25 (SetStorage offset)
 site pooloff main ad440c 8b39c101 8b394101   # add x1, x8, w25, sxtw -> add x1, x8, w25, uxtw (packaged data source)
 
@@ -147,7 +147,7 @@ site pooloff main ad440c 8b39c101 8b394101   # add x1, x8, w25, sxtw -> add x1, 
 # clamp and StickExponent keeps x in s11 (1.4.3 s9); the host callback performs the displaced store and adds raw mouse
 # counts. The free orbit (main+0xae28b8) keeps its final angles at [sp+0x3c] / [sp+0x40], Ultrahand's curve results
 # (main+0x1768ebc) are s9 and s15. The host functions are at page +0xfd0 .. +0xf80; the page is main+0x472b000.
-set mouse_direct TOTK_MOUSE_DIRECT_PATCH 1
+set mouse_direct MRPG_MOUSE_DIRECT_PATCH 1
 site mouse_direct main d18140 bd04228b 94e84fa4   # camera input: str s11, [x20, #0x420]
 site mouse_direct main d181fc 6d4123e9 94e84f71   # camera input activity: ldp d9, d8, [sp, #0x10]
 site mouse_direct main ae28e8 f9400408 94f125b2   # free orbit begin: ldr x8, [x0, #8]
@@ -241,7 +241,7 @@ site mouse_direct main 1d46910 bd401fa0 94a7959c   # ShieldSurfing: ldr s0, [x29
 site mouse_direct main 1d467b4 bd403bec 94a795f3   # ShieldSurfing: ldr s12, [sp, #0x38] (yaw)
 
 # Spin waits, from tools/spin_waits.py --exefs build/extracted/v121/exefs --patches recomp/patches-v121.txt: loops that only
-# another thread can end; their back-edges pass rt_spin_gate (runtime/kernel.c), TOTK_SPIN=0 keeps the core.
+# another thread can end; their back-edges pass rt_spin_gate (runtime/kernel.c), MRPG_SPIN=0 keeps the core.
 spin main ac600 ac620 ac630   # 13 instructions; loads
 spin main ac680 ac6a8 ac6b8   # 15 instructions; loads
 spin main ac6f0 ac718 ac728   # 15 instructions; loads

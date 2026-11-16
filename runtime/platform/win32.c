@@ -20,7 +20,7 @@
 
 // Hybrid laptops: the drivers read these exports of the executable when it starts and run it on the dedicated GPU.
 // NVIDIA Optimus can otherwise hide its GPU from a program it put on the integrated one, whatever the Windows and NVIDIA
-// settings say; AMD switchable graphics read the second one. TOTK_GPU_INDEX still picks another GPU. Savage Wind Recomp
+// settings say; AMD switchable graphics read the second one. MRPG_GPU_INDEX still picks another GPU. Savage Wind Recomp
 // exports the same two (runtime/platform/windows.c).
 __declspec(dllexport) DWORD NvOptimusEnablement = 1;
 __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
@@ -981,7 +981,7 @@ void plat_aligned_free(void *p) { _aligned_free(p); }
 
 // ---- process
 
-#ifdef TOTK_PGO_GEN
+#ifdef MRPG_PGO_GEN
 // compiler-rt's profile runtime (an instrumented build, tools/build_game.py --pgo gen). It writes its counters from an
 // atexit handler, which ExitProcess skips; __llvm_profile_dump writes them once and makes later writes no-ops.
 int __llvm_profile_dump(void);
@@ -1005,7 +1005,7 @@ __attribute__((constructor)) static void pgo_flush_start(void) {
 #endif
 
 void plat_exit(int code) {
-#ifdef TOTK_PGO_GEN
+#ifdef MRPG_PGO_GEN
     __llvm_profile_dump();
 #endif
     fflush(stdout);
@@ -1918,10 +1918,10 @@ void plat_ipc_close(PlatIpc *p) {
 
 
 // ---- restart
-// TOTK_RESTART_WAIT names the process that called plat_restart, as its id and creation time: a process that has only
+// MRPG_RESTART_WAIT names the process that called plat_restart, as its id and creation time: a process that has only
 // reused the id is not waited for. Waiting keeps the new process off the old one's files (the log it moves at start,
 // the saves) until the old one is gone; no handle is inherited, so none of them stays open in the new one either.
-#define RESTART_WAIT "TOTK_RESTART_WAIT"
+#define RESTART_WAIT "MRPG_RESTART_WAIT"
 
 static uint64_t process_created(HANDLE h) {
     FILETIME c, e, k, u;

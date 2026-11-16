@@ -1,4 +1,4 @@
-"""Every setting the runtime knows is described: in totk.ini.example for players or in docs/settings.md for the rest.
+"""Every setting the runtime knows is described: in mrpg.ini.example for players or in docs/settings.md for the rest.
 
     python tests/settings_doc_check.py
 
@@ -24,14 +24,14 @@ def code_defaults(cfg):
     for path in (ROOT / 'runtime').rglob('*'):
         if path.suffix in ('.c', '.cpp', '.h'):
             text = path.read_text(encoding='utf-8', errors='replace')
-            found.update(re.findall(r'rt_knob\("(?:TOTK_)?([A-Z0-9_]+)", *"([^"]*)"\)', text))
+            found.update(re.findall(r'rt_knob\("(?:MRPG_)?([A-Z0-9_]+)", *"([^"]*)"\)', text))
     found.update(re.findall(r'\{"([A-Z0-9_]+)", "([^"]*)", (?:"[^"]*"|NULL)', cfg))
     return found
 
 
 def main():
     cfg = (ROOT / 'runtime' / 'cfg.c').read_text(encoding='utf-8')
-    example = (ROOT / 'totk.ini.example').read_text(encoding='utf-8')
+    example = (ROOT / 'mrpg.ini.example').read_text(encoding='utf-8')
     doc = (ROOT / 'docs' / 'settings.md').read_text(encoding='utf-8')
     known = known_names(cfg)
     in_example = {name.upper() for name in re.findall(r'^#? ?([a-z][a-z0-9_]*) = ', example, re.M)}
@@ -42,7 +42,7 @@ def main():
         if '<' in name:
             in_doc |= {key.upper() for key in re.findall(r'`(bind_[a-z_]+)`', text)}
 
-    problems = [f'{name}: in runtime/cfg.c known[], described in neither totk.ini.example nor docs/settings.md'
+    problems = [f'{name}: in runtime/cfg.c known[], described in neither mrpg.ini.example nor docs/settings.md'
                 for name in sorted(known - in_example - in_doc)]
     problems += [f'{name}: in docs/settings.md, not in runtime/cfg.c known[]' for name in sorted(in_doc - known)]
     defaults = code_defaults(cfg)
@@ -53,7 +53,7 @@ def main():
 
     for problem in problems:
         print(problem)
-    print(f'settings_doc_check: {len(known)} names, {len(known & in_example)} in totk.ini.example, '
+    print(f'settings_doc_check: {len(known)} names, {len(known & in_example)} in mrpg.ini.example, '
           f'{len(known & in_doc)} in docs/settings.md, {len(problems)} problems')
     return 1 if problems else 0
 

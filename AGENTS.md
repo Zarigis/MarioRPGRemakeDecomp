@@ -2,7 +2,7 @@
 
 Static recompilation of *Super Mario RPG* (Switch, ARM64, Unity 2021.3 IL2CPP, title `0100BC0018138000`, version 1.0.1
 = `v101`) into a native Windows x86-64 exe with a Vulkan renderer. The repository started as a copy of TotK Recomp
-(README, "Origin"): `docs/` and the names `totk.exe` and `TOTK_*` still come from it. Design of the shared parts:
+(README, "Origin"): `docs/` and the comments that say TotK still describe that game. Design of the shared parts:
 [docs/architecture.md](docs/architecture.md). Toolchain, build commands and tests: [docs/building.md](docs/building.md),
 with `v101` as the version.
 

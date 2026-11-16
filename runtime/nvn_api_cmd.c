@@ -252,7 +252,7 @@ static void copy_view(view_t *dst, uint8_t *has, const NVNtextureView *v) {
 //   the thread that replays them and keeps the pins it is given.
 // MacNativeGames hit the same growth (3.16 million copies, 405 MB after 27 minutes) and marks pins by walking every live
 // recording each window (hle_nvn.c pin_scan); counting at copy and release walks each copy's ops once more, when it is
-// freed. TOTK_PIN_SWEEP=0 keeps every copy.
+// freed. MRPG_PIN_SWEEP=0 keeps every copy.
 typedef struct {
     tex_t t;              // first: ops hold pins as tex_t pointers
     uint64_t last_use;    // nsubmits at the last tex_pin or the last drop of refs
@@ -366,9 +366,9 @@ void nvn_pins_sweep(uint64_t now, const tex_t *const *keep, int nkeep) {
     if (now < NVN_PIN_AGE) return;
     static int on = -1;
     if (on < 0) {
-        const char *s = cfg_get("TOTK_PIN_SWEEP");
+        const char *s = cfg_get("MRPG_PIN_SWEEP");
         on = !(s && !strcmp(s, "0"));
-        if (!on) rt_log("nvn: TOTK_PIN_SWEEP=0: texture pin copies are kept for the run (the heap grows in long sessions)");
+        if (!on) rt_log("nvn: MRPG_PIN_SWEEP=0: texture pin copies are kept for the run (the heap grows in long sessions)");
     }
     if (!on) return;
     static uint64_t logged;

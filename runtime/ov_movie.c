@@ -21,7 +21,7 @@
 // decoded frames are handed over when their presentation time is due, counted from the first frame (movie_tick, at every
 // present on the presenting guest thread), at most one per present. When the game falls behind, a frame more than 1.5
 // periods late is dropped if the next one is due too, so the picture keeps time with the movie's sound.
-// TOTK_MOVIE_PACE=0 hands every decoded frame over at the next present; TOTK_MOVIE_HOST=0 leaves every decoder to the
+// MRPG_MOVIE_PACE=0 hands every decoded frame over at the next present; MRPG_MOVIE_HOST=0 leaves every decoder to the
 // library (which aborts at the first movie).
 #include <emmintrin.h>
 #include <stdint.h>
@@ -104,7 +104,7 @@ void movie_set_clock(uint64_t (*clock)(void)) { g_clock = clock ? clock : kern_n
 void movie_set_pace(int on) { g_pace = on; }
 static int pace_on(void) {
     if (g_pace < 0) {
-        const char *e = cfg_get("TOTK_MOVIE_PACE");
+        const char *e = cfg_get("MRPG_MOVIE_PACE");
         g_pace = !(e && !strcmp(e, "0"));
     }
     return g_pace;
@@ -112,7 +112,7 @@ static int pace_on(void) {
 static int host_off(void) {
     static int v = -1;
     if (v < 0) {
-        const char *e = cfg_get("TOTK_MOVIE_HOST");
+        const char *e = cfg_get("MRPG_MOVIE_HOST");
         v = e && !strcmp(e, "0");
     }
     return v;
@@ -240,7 +240,7 @@ static void to_nv12(const vpx_image_t *img, uint8_t *dst, int w, int h) {
 }
 
 // ---- Keeping the movie's shape. The game draws a decoded frame over the whole canvas, so on an output that is not 16:9
-// (output_res in totk.ini) the 1920x1080 movies would be stretched. The frame keeps its size; the picture is shrunk
+// (output_res in mrpg.ini) the 1920x1080 movies would be stretched. The frame keeps its size; the picture is shrunk
 // inside it and the rest is black, so that after the game's stretch the picture has the movie's own shape again: a wider
 // output gets a squeezed picture with black at the left and right, a taller one (16:10) black above and below.
 // The shrink is a box filter (each output pixel averages the source pixels it covers, weights in 1/4096), separable, with
@@ -656,7 +656,7 @@ static void ov_ctor(Cpu *c) {
     guest_init();
     if (type != MOVIE_TYPE_VP9 || (mode != MOVIE_MODE_BUFFER && mode != MOVIE_MODE_TEXTURE) || host_off()) {
         rt_log("movie: decoder type %d mode %d format %d left to the library%s", type, mode, format,
-               host_off() ? " (TOTK_MOVIE_HOST=0)" : " (only VP9 in buffer mode runs on the host)");
+               host_off() ? " (MRPG_MOVIE_HOST=0)" : " (only VP9 in buffer mode runs on the host)");
         pass(c, MOVIE_CTOR);
         return;
     }
@@ -819,7 +819,7 @@ static void ov_start(Cpu *c) {
             m->fit = NULL;
             unsigned out[2];
             res_wanted(out);
-            if (strcmp(cfg_value("TOTK_MOVIE_ASPECT"), "stretch")) {
+            if (strcmp(cfg_value("MRPG_MOVIE_ASPECT"), "stretch")) {
                 m->fit = movie_fit_new(m->w, m->h, out[0], out[1]);
                 if (m->fit)
                     rt_log("movie: %dx%d picture kept in shape on the %ux%u output (%dx%d inside the frame)", m->w,

@@ -1,6 +1,6 @@
-// totk.exe entry: reserves the guest address space, parses the command line and runs one mode.
+// mrpg.exe entry: reserves the guest address space, parses the command line and runs one mode.
 //
-//   totk.exe [--exefs DIR] [--romfs DIR] [--profile DIR] <mode>
+//   mrpg.exe [--exefs DIR] [--romfs DIR] [--profile DIR] <mode>
 //     --selftest        layout, dispatch table and host-function registry; needs no game files
 //     --probe-mods      the mods folder scan, order and switches (mods.c), the size table entries of the members of
 //                       mods' packs (restbl_probe.c); needs no game files
@@ -16,7 +16,7 @@
 //     --boot            run the game to the first NVN call
 //     --seconds S       run the game (implies --boot's start-up) until the world clock (game time since the loaded
 //                       save's first frame) passed S seconds, then exit 0 at that present
-//     --shot PNG        with --seconds: save that frame; env TOTK_GPU=null|vulkan selects the back end
+//     --shot PNG        with --seconds: save that frame; env MRPG_GPU=null|vulkan selects the back end
 //     (no mode)         run the game
 //
 // Also here: the runtime services the generated code calls besides rt_dispatch and rt_svc (rt_brk, rt_udf,
@@ -42,9 +42,9 @@ unsigned rt_trace;
 int rt_trace_unwind;
 
 // Log file. A game run whose stderr is not a file already (started from Explorer, a shortcut or a console) also
-// writes its log to logs\totk.log next to totk.exe, so a player has one to attach to a report; run_game.py and
-// `2> file` keep their own file. Each start moves the earlier logs to totk.1.log .. totk.4.log. A file stops at 64 MiB
-// (TOTK_TRACE can write that much). Lines from before log_open wait in a static buffer: mem_init runs first so that
+// writes its log to logs\mrpg.log next to mrpg.exe, so a player has one to attach to a report; run_game.py and
+// `2> file` keep their own file. Each start moves the earlier logs to mrpg.1.log .. mrpg.4.log. A file stops at 64 MiB
+// (MRPG_TRACE can write that much). Lines from before log_open wait in a static buffer: mem_init runs first so that
 // nothing else lands in the guest address space, and an earlier open would put the CRT's heap there.
 #define LOG_KEEP 5
 #define LOG_CAP (64ull << 20)
@@ -115,13 +115,13 @@ static void log_open(int game) {
     if (cut && (size_t)(cut - dir) + sizeof "/logs" <= sizeof dir) {
         strcpy(cut, "/logs");
         plat_file_mkdir_p(dir);
-        for (int i = LOG_KEEP - 1; i > 0; i--) {   // totk.3.log -> totk.4.log, ..., totk.log -> totk.1.log
-            if (i > 1) snprintf(from, sizeof from, "%s/totk.%d.log", dir, i - 1);
-            else snprintf(from, sizeof from, "%s/totk.log", dir);
-            snprintf(to, sizeof to, "%s/totk.%d.log", dir, i);
+        for (int i = LOG_KEEP - 1; i > 0; i--) {   // mrpg.3.log -> mrpg.4.log, ..., mrpg.log -> mrpg.1.log
+            if (i > 1) snprintf(from, sizeof from, "%s/mrpg.%d.log", dir, i - 1);
+            else snprintf(from, sizeof from, "%s/mrpg.log", dir);
+            snprintf(to, sizeof to, "%s/mrpg.%d.log", dir, i);
             if (plat_file_exists(from)) plat_file_replace(from, to);
         }
-        snprintf(g_log_path, sizeof g_log_path, "%s/totk.log", dir);
+        snprintf(g_log_path, sizeof g_log_path, "%s/mrpg.log", dir);
         g_log_file = plat_append_open(g_log_path);
     }
     if (!g_log_file) {
@@ -137,9 +137,9 @@ static void log_open(int game) {
 }
 
 static void parse_trace(void) {
-    const char *u = cfg_get("TOTK_TRACE_UNWIND");
+    const char *u = cfg_get("MRPG_TRACE_UNWIND");
     rt_trace_unwind = u && *u && *u != '0';
-    const char *e = cfg_get("TOTK_TRACE");   // no default: nothing is traced when unset
+    const char *e = cfg_get("MRPG_TRACE");   // no default: nothing is traced when unset
     if (!e) return;
     static const struct { const char *name; unsigned bit; } names[] = {
         {"svc", RT_TRACE_SVC}, {"host", RT_TRACE_HOSTCALL}, {"ipc", RT_TRACE_IPC}, {"fs", RT_TRACE_FS},
@@ -150,7 +150,7 @@ static void parse_trace(void) {
         int known = 0;
         for (unsigned i = 0; i < sizeof names / sizeof *names; i++)
             if (strlen(names[i].name) == n && !strncmp(p, names[i].name, n)) rt_trace |= names[i].bit, known = 1;
-        if (!known && n) rt_log("TOTK_TRACE: unknown item '%.*s' (svc, host, ipc, fs, gfx, perf, sched, audio, present, all)", (int)n, p);
+        if (!known && n) rt_log("MRPG_TRACE: unknown item '%.*s' (svc, host, ipc, fs, gfx, perf, sched, audio, present, all)", (int)n, p);
         p += n + (p[n] == ',');
     }
 }
@@ -226,7 +226,7 @@ static uint64_t lifted_function(uintptr_t rip) { return lifted_function_at(rip, 
 
 static int readable(uint64_t a, uint64_t n) { return plat_mem_readable(a, n); }
 
-// The machine code around the faulting instruction: 32 bytes before rip, then 32 from rip. The user's totk.exe is built
+// The machine code around the faulting instruction: 32 bytes before rip, then 32 from rip. The user's mrpg.exe is built
 // on their machine, so its offsets need not match ours; these bytes and the offset into the lifted function find the
 // same instruction in a local build of that version, and with it the guest instruction and the operands' registers.
 static void crash_code_bytes(uintptr_t rip) {
@@ -332,7 +332,7 @@ static void crash_handler(const PlatCrash *x) {
     uintptr_t rip = x->rip;
     rt_logf("FATAL: %s (%#x) at host %p (", x->what, x->code, (void *)rip);
     if (x->module && !*x->module) rt_logf("outside every module)");
-    else rt_logf("%s+%#llx)", x->module ? x->module : "totk", (unsigned long long)x->offset);
+    else rt_logf("%s+%#llx)", x->module ? x->module : "mrpg", (unsigned long long)x->offset);
     if (x->access >= 0)
         rt_logf(", %s address %#llx", x->access == 1 ? "writing" : x->access == 8 ? "executing" : "reading",
                 (unsigned long long)x->addr);
@@ -366,7 +366,7 @@ static void crash_handler(const PlatCrash *x) {
             continue;
         }
         uint64_t g = lifted_function(x->frames[i]);
-        rt_logf("  host frame %2d: totk+%#llx", i, (unsigned long long)(x->frames[i] - exe));
+        rt_logf("  host frame %2d: mrpg+%#llx", i, (unsigned long long)(x->frames[i] - exe));
         if (g) rt_logf(" in lifted function f_%llx", (unsigned long long)g);
         rt_log_raw("\n", 1);
     }
@@ -533,7 +533,7 @@ static void check_memory(void) {
     CHECK(q.state == 0 && q.base == g->alias.base && q.size == g->alias.size, "QueryMemory on the free alias region");
     CHECK(mem_map_physical(a, 0x1000) == 0 && LD64(a + 0x10) == 0 && mem_unmap_physical(a, 0x1000) == 0,
           "remapped physical memory is not zeroed");
-    // past the pool whatever its size (TOTK_APP_POOL, TOTK_TEX_HEAP_EXTRA_MB): 4 GiB fits a grown one
+    // past the pool whatever its size (MRPG_APP_POOL, MRPG_TEX_HEAP_EXTRA_MB): 4 GiB fits a grown one
     CHECK(mem_map_physical(a, (g->pool + 0x100000) & ~0xfffffull) == 0x10801,
           "MapPhysicalMemory beyond the pool is not LimitReached");
     mem_query(RT_HOSTFN_BASE + 0x40, &q);
@@ -609,9 +609,9 @@ static int usage(const char *argv0) {
     return 2;
 }
 
-// Paths for a copied folder (tools/package_build.py). Per path: TOTK_EXEFS, TOTK_ROMFS, TOTK_PROFILE_DIR, else the
-// folder next to totk.exe (exefs with main.npdm, romfs with romfs.bin, any profile folder) if it is there, else the
-// path baked in at build time. A relative value is relative to totk.exe's folder.
+// Paths for a copied folder (tools/package_build.py). Per path: MRPG_EXEFS, MRPG_ROMFS, MRPG_PROFILE_DIR, else the
+// folder next to mrpg.exe (exefs with main.npdm, romfs with romfs.bin, any profile folder) if it is there, else the
+// path baked in at build time. A relative value is relative to mrpg.exe's folder.
 static char pp_exefs[PLAT_PATH_MAX * 2], pp_romfs[PLAT_PATH_MAX * 2], pp_profile[PLAT_PATH_MAX * 2];
 
 static const char *portable_path(const char *dir, const char *var, const char *sub, const char *must, char *out, size_t cap,
@@ -636,15 +636,15 @@ static void portable_paths(RtConfig *c) {
     char *cut = n && n < sizeof exe ? plat_last_sep(exe) : NULL;
     if (!cut) return;
     *cut = 0;
-    c->exefs = portable_path(exe, "TOTK_EXEFS", "exefs", "main.npdm", pp_exefs, sizeof pp_exefs, c->exefs);
-    c->romfs = portable_path(exe, "TOTK_ROMFS", "romfs", "romfs.bin", pp_romfs, sizeof pp_romfs, c->romfs);
-    c->profile = portable_path(exe, "TOTK_PROFILE_DIR", "profile", NULL, pp_profile, sizeof pp_profile, c->profile);
+    c->exefs = portable_path(exe, "MRPG_EXEFS", "exefs", "main.npdm", pp_exefs, sizeof pp_exefs, c->exefs);
+    c->romfs = portable_path(exe, "MRPG_ROMFS", "romfs", "romfs.bin", pp_romfs, sizeof pp_romfs, c->romfs);
+    c->profile = portable_path(exe, "MRPG_PROFILE_DIR", "profile", NULL, pp_profile, sizeof pp_profile, c->profile);
 }
 
 int main(int argc, char **argv) {
-    mem_init();   // first: claim the guest address space before anything else can land there; reads totk.ini
+    mem_init();   // first: claim the guest address space before anything else can land there; reads mrpg.ini
     // The build that wrote the log, at its top: an attached log from another install or version shows at a glance.
-    rt_log("version: TotK Recomp %s, game %d.%d.%d", rt_port_version, rt_game_version / 100, rt_game_version / 10 % 10,
+    rt_log("version: MRPG Recomp %s, game %d.%d.%d", rt_port_version, rt_game_version / 100, rt_game_version / 10 % 10,
            rt_game_version % 10);
     // A restart from the settings menu (gfx_present.c gfx_window_closed) starts this process while the one it replaces
     // is still exiting: its log, RomFS and saves are free once it is gone.
@@ -655,27 +655,27 @@ int main(int argc, char **argv) {
     parse_trace();
     prof_start();
     // Timed guest waits (kernel.c block_inner) sleep in whole milliseconds; at the default 15.6 ms tick a 1 ms wait
-    // costs a full tick. TOTK_TIMER_1MS=0 keeps the default for comparison.
-    if (cfg_bool("TOTK_TIMER_1MS")) plat_timer_1ms();
+    // costs a full tick. MRPG_TIMER_1MS=0 keeps the default for comparison.
+    if (cfg_bool("MRPG_TIMER_1MS")) plat_timer_1ms();
     int power = plat_power_full();
     if (power >= 0)
         rt_log("power: %s", power ? "OS power throttling off (EcoQoS, timer resolution in the background)"
                                   : "OS power throttling: the opt-out was refused");
-    // Hybrid CPUs: the threads every frame goes through prefer the P-cores (perf_core_thread). TOTK_PCORE=0: off.
+    // Hybrid CPUs: the threads every frame goes through prefer the P-cores (perf_core_thread). MRPG_PCORE=0: off.
     if (rt_knob("PCORE", "1")) {
         char why[160];
         int n = plat_perf_core_setup(why, sizeof why);
         if (n) rt_log("power: %s; the game's main and render threads and the vk replay, recorder and present threads "
-                      "prefer the %d P-core ones (TOTK_PCORE=0 turns it off)", why, n);
+                      "prefer the %d P-core ones (MRPG_PCORE=0 turns it off)", why, n);
         else rt_log("power: %s: no P-core preference", why);
     } else {
-        rt_log("power: TOTK_PCORE=0: no P-core preference");
+        rt_log("power: MRPG_PCORE=0: no P-core preference");
     }
     cfg = (RtConfig){.exefs = rt_default_exefs, .romfs = rt_default_romfs, .profile = rt_default_profile,
-                     .gpu = cfg_get("TOTK_GPU")};
+                     .gpu = cfg_get("MRPG_GPU")};
     portable_paths(&cfg);   // command-line paths below still win
     if (cfg.gpu && strcmp(cfg.gpu, "null") && strcmp(cfg.gpu, "vulkan")) {
-        rt_logf("TOTK_GPU must be null or vulkan, not '%s'\n", cfg.gpu);
+        rt_logf("MRPG_GPU must be null or vulkan, not '%s'\n", cfg.gpu);
         return 2;
     }
     const char *mode = NULL;
@@ -705,7 +705,7 @@ int main(int argc, char **argv) {
     log_open(!mode);
     if (!mode) {
         cfg.boot = cfg.seconds > 0;   // --seconds starts the game like --boot, with its checkpoints
-        discord_init();   // the Rich Presence thread (discord_rpc.c); it reads totk.ini itself and idles while off
+        discord_init();   // the Rich Presence thread (discord_rpc.c); it reads mrpg.ini itself and idles while off
         playtime_init();  // the play time thread (playtime.c): the Game tab's play time across runs
         rt_boot();
         return 0;
@@ -716,7 +716,7 @@ int main(int argc, char **argv) {
     if (!strcmp(mode, "--probe-crash-null")) return probe_crash(1);
     if (!strcmp(mode, "--probe-cfg")) return probe_cfg();
 #ifdef _WIN32
-    if (!strcmp(mode, "--probe-dpi")) return probe_dpi();   // the Win32 DPI awareness of totk.manifest
+    if (!strcmp(mode, "--probe-dpi")) return probe_dpi();   // the Win32 DPI awareness of mrpg.manifest
 #endif
     if (!strcmp(mode, "--probe-mods")) return probe_mods();
     if (!strcmp(mode, "--probe-discord")) return probe_discord();

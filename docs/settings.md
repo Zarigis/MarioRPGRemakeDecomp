@@ -1,6 +1,6 @@
 # Settings reference
 
-`totk.ini.example` describes the settings for players. This page lists the rest: diagnostics, test hooks, paths and experiments. Set one as `name = value` in `totk.ini`, or as the environment variable `TOTK_NAME`, which wins over the file. Remove the line to go back to the default.
+`mrpg.ini.example` describes the settings for players. This page lists the rest: diagnostics, test hooks, paths and experiments. Set one as `name = value` in `mrpg.ini`, or as the environment variable `MRPG_NAME`, which wins over the file. Remove the line to go back to the default.
 
 ## Safety
 
@@ -12,7 +12,7 @@
 
 Many rows below are developer tools that only act together with another setting or a command-line mode (for example a trace mode or the DLSS path). The row says so where the code does. The rows come from reading the code, and most effects have not been checked in a run.
 
-`tests/settings_doc_check.py` fails when a name in `known[]` (`runtime/cfg.c`) is described neither here nor in `totk.ini.example`, or when a default here differs from the code.
+`tests/settings_doc_check.py` fails when a name in `known[]` (`runtime/cfg.c`) is described neither here nor in `mrpg.ini.example`, or when a default here differs from the code.
 
 ## Diagnostics and logging
 
@@ -26,14 +26,14 @@ Many rows below are developer tools that only act together with another setting 
 | `perf_slow_ms` (default `50`) | Frames at least this many milliseconds long get a `perf: slow frame` log line with the time blocked per cause. | Changes how many frames are logged; a small value fills the log. | Safe |
 | `replay_check` | `1` reads every texture read-back a second time after a full drain of the replay queue and compares the two. | Stalls the replay queue at every read-back, so frames get much slower; mismatches are only counted and logged. | Caution |
 | `resolve_check` | `1` compares every cached pool lookup with the locked lookup and stops on a difference. | Slows every pool lookup; the game stops if the two ever differ. | Caution |
-| `speed_probe` | `1` adds the player's position and ground speed to the frame-rate line that `TOTK_TRACE=perf` prints every 120 presents. | Only adds log text; has no effect without `TOTK_TRACE=perf`. | Safe |
+| `speed_probe` | `1` adds the player's position and ground speed to the frame-rate line that `MRPG_TRACE=perf` prints every 120 presents. | Only adds log text; has no effect without `MRPG_TRACE=perf`. | Safe |
 
 ## Profiling and measurement
 
 | Setting | What it does | Effect of changing it | Safety |
 | --- | --- | --- | --- |
 | `ab` | Splits game time into blocks of this many seconds in the order A B B A and lets settings written as `ab` take effect only in the B blocks. | Settings that accept `ab` flip on and off every few seconds, so frame times and the picture change with the block; without such a setting it does nothing. | Caution |
-| `crit` | `<first>-<last>` frame range (with `TOTK_TRACE=sched`) that records every state change and wake of the guest threads, then writes a file at the last frame. | Recording adds overhead to every thread switch in the range and writes one file; `tools/crit_path.py` reads it. | Caution |
+| `crit` | `<first>-<last>` frame range (with `MRPG_TRACE=sched`) that records every state change and wake of the guest threads, then writes a file at the last frame. | Recording adds overhead to every thread switch in the range and writes one file; `tools/crit_path.py` reads it. | Caution |
 | `crit_out` (default `crit.bin`) | Path of the file that `crit` writes. | Only moves the file; nothing is written without `crit`. | Safe |
 | `profile` | Path of a sampling profile file; the profiler suspends threads to unwind their stacks. | Frames get slower while it samples and the profile file grows; `tools/prof_report.py` reads it. | Caution |
 | `profile_chains` | `1` keeps call chains of every thread in the profile. | Larger profile file and more work per sample; has no effect without `profile`. | Caution |
@@ -49,9 +49,9 @@ Many rows below are developer tools that only act together with another setting 
 | `dump_buf` | `<addr>:<size>[:<off>:<stride>:<w>:<h>]` snapshots one GPU buffer range after every logged pass of a dump. | Writes `buf_<pass>.bin` files and `bufs.txt`; has no effect without `dump`. | Caution |
 | `dump_dir` (default `dump`) | Folder that receives the frame dump files. | Only moves the output. | Safe |
 | `dump_log` | Frame number; logs the frames from there up to the dumped frame into `passes.txt`, with PNGs only of targets up to 64K texels. | Writes a longer `passes.txt` and more PNGs; has no effect without `dump`. | Caution |
-| `flight_at` | Comma-separated frame numbers that trigger a flight-recorder dump. | Writes a dump folder when each frame is reached; has no effect unless the flight recorder (`TOTK_FLIGHT=1`) is on. | Caution |
-| `flight_dir` | Folder for flight-recorder dumps; the default is `flight` beside the folder of `totk.exe`. | Only moves the output. | Safe |
-| `flight_frames` (default `600`) | Number of presents the flight recorder keeps. | A larger ring keeps more history and more thumbnails in memory; has no effect unless `TOTK_FLIGHT=1`. | Caution |
+| `flight_at` | Comma-separated frame numbers that trigger a flight-recorder dump. | Writes a dump folder when each frame is reached; has no effect unless the flight recorder (`MRPG_FLIGHT=1`) is on. | Caution |
+| `flight_dir` | Folder for flight-recorder dumps; the default is `flight` beside the folder of `mrpg.exe`. | Only moves the output. | Safe |
+| `flight_frames` (default `600`) | Number of presents the flight recorder keeps. | A larger ring keeps more history and more thumbnails in memory; has no effect unless `MRPG_FLIGHT=1`. | Caution |
 | `flight_thumbs` (default `1`) | `0` turns off the 320x180 thumbnail the flight recorder saves for each present. | Dumps hold only `frames.tsv`; thumbnails cost a GPU blit per present when on. | Safe |
 | `rdoc` | Comma-separated frame numbers to capture with RenderDoc, which is loaded before Vulkan starts. | The game runs under RenderDoc, with its capture options set to keep `VK_EXT_external_memory_host` available and to reference all resources, and captures are written to disk. | Caution |
 | `rdoc_dir` | Output folder for RenderDoc captures (the default is `build/captures`). | Only moves the output. | Safe |
@@ -71,8 +71,8 @@ Many rows below are developer tools that only act together with another setting 
 | `input_script` | Path of a file with lines `<frame> <button> [hold]` or `<frame> LSTICK or RSTICK <x> <y> [hold]` that are ORed into the real input. | The game presses those buttons by itself; a file that cannot be opened is logged and ignored. | Caution |
 | `menu_test` | `<frame>[:<frames per page>]` opens the menu at that frame, shows each tab for 30 frames (or the given count), saves one screenshot per tab and closes the menu. | The menu opens by itself and screenshots are written. | Caution |
 | `menu_test_dir` | Folder for the `menu_test` screenshots; the default is the working directory. | Only moves the output. | Safe |
-| `menu_test_set` | `<frame>:<key>=<value>[,...][;...]` changes settings live at that frame, with or without the menu open; `SAVE=1` also writes `totk.ini`. | Settings change during play without input, and `SAVE=1` rewrites the file. | Caution |
-| `probe_movie` | Text that picks the movie for `totk.exe --probe-movie`: the first file whose path contains it. | Only used by the movie decoder probe; ignored in normal play. | Safe |
+| `menu_test_set` | `<frame>:<key>=<value>[,...][;...]` changes settings live at that frame, with or without the menu open; `SAVE=1` also writes `mrpg.ini`. | Settings change during play without input, and `SAVE=1` rewrites the file. | Caution |
+| `probe_movie` | Text that picks the movie for `mrpg.exe --probe-movie`: the first file whose path contains it. | Only used by the movie decoder probe; ignored in normal play. | Safe |
 | `probe_movie_shot` | Path of a `.ppm` file that the movie probe writes the middle frame to. | Only used by the movie decoder probe. | Safe |
 | `probe_movie_bench` | `1` makes the movie probe also time the resampler that fits a movie to a game resolution of another shape, and print the time per frame. | Only used by the movie decoder probe. | Safe |
 | `swkbd_answer` | `<text>`, `<cancel>` or `<initial>`: answers the on-screen keyboard (for example a horse name) without opening a window. | The game gets that answer every time it asks for text. | Caution |
@@ -92,27 +92,27 @@ Many rows below are developer tools that only act together with another setting 
 | Setting | What it does | Effect of changing it | Safety |
 | --- | --- | --- | --- |
 | `amiibo_dir` | Folder the Amiibo tab starts in; the tab saves the folder you last browsed here. | Only changes which folder the tab lists first. | Safe |
-| `exefs` | Folder of the game's ExeFS (with `main.npdm`); a relative path is relative to `totk.exe`'s folder. | Without it, an `exefs` folder next to `totk.exe` is used, else the path set at build time. The game code is compiled into `totk.exe`, and the loader checks the files here by SHA-256, so files from another build or game version stop the start with a message. | Caution |
-| `mods_dir` (default `mods`) | Folder that holds one subfolder per player mod, beside `totk.exe`. | Mods found there replace game files; see `docs/mods.md`. | Caution |
+| `exefs` | Folder of the game's ExeFS (with `main.npdm`); a relative path is relative to `mrpg.exe`'s folder. | Without it, an `exefs` folder next to `mrpg.exe` is used, else the path set at build time. The game code is compiled into `mrpg.exe`, and the loader checks the files here by SHA-256, so files from another build or game version stop the start with a message. | Caution |
+| `mods_dir` (default `mods`) | Folder that holds one subfolder per player mod, beside `mrpg.exe`. | Mods found there replace game files; see `docs/mods.md`. | Caution |
 | `mods_disabled` | Names of mods that are switched off, separated by `\|`. | Listed mods are not applied; the Mods tab writes this line. | Safe |
 | `mods_order` | Mod names, top first, separated by `\|`; the top mod wins a file that two mods replace. | Changes which mod's file the game gets; unlisted mods go below the listed ones, by name. | Safe |
-| `pipeline_cache` | Path of the Vulkan pipeline cache file (default `pipeline-cache.bin` beside `totk.exe`). | Moves the cache; a new path starts empty and pipelines are built again. | Caution |
-| `profile_dir` | Folder of the game profile, which holds the user account id that save data is named after; the default is a `profile` folder beside `totk.exe`, else the build-time path. | Another folder means a different set of saves. | Save risk |
-| `romfs` | Folder of the game's RomFS (with `romfs.bin`); a relative path is relative to `totk.exe`'s folder. | Without it, a `romfs` folder next to `totk.exe` is used, else the build-time path; a missing image stops the start with a message. | Save risk |
-| `romfs_index` | Path of `romfs-index.bin`, which `tools/romfs_index.py` wrote; the default is beside `totk.exe`. | The index is checked against the image by SHA-256 and size; a mismatch stops the start. | Caution |
+| `pipeline_cache` | Path of the Vulkan pipeline cache file (default `pipeline-cache.bin` beside `mrpg.exe`). | Moves the cache; a new path starts empty and pipelines are built again. | Caution |
+| `profile_dir` | Folder of the game profile, which holds the user account id that save data is named after; the default is a `profile` folder beside `mrpg.exe`, else the build-time path. | Another folder means a different set of saves. | Save risk |
+| `romfs` | Folder of the game's RomFS (with `romfs.bin`); a relative path is relative to `mrpg.exe`'s folder. | Without it, a `romfs` folder next to `mrpg.exe` is used, else the build-time path; a missing image stops the start with a message. | Save risk |
+| `romfs_index` | Path of `romfs-index.bin`, which `tools/romfs_index.py` wrote; the default is beside `mrpg.exe`. | The index is checked against the image by SHA-256 and size; a mismatch stops the start. | Caution |
 | `romfs_mmap` | `1` maps the RomFS image into memory instead of reading it with positional reads. | Changes how the image is read; the log reports when the mapped path is on. | Caution |
 | `romfs_mods` | Folder of an overlay with a `manifest.tsv` of sizes and SHA-256 hashes; its files are served in place of the originals. | A missing file, size or hash mismatch, or a changed original stops the start; player mods win over this overlay. | Save risk |
 | `romfs_patches` | Folder of an overlay with a `manifest.tsv`, served in place of the original files; the default is `romfs-patches` beside the index. | Same checks as `romfs_mods`; while it is set the Xbox and PC button prompts are off, and the menu says so. | Save risk |
 | `romfs_proof_dir` | Folder for the `.romfs-verified-v1` proof file of a full verification; the default is beside the index. | Only moves one small file. | Safe |
 | `romfs_verify` | `full` hashes the whole RomFS image at start; `force` hashes it again even when a proof file exists. | Start takes many minutes for a 17 GB image; a proof file is written so later starts skip the hash. | Caution |
-| `shader_cache` | Folder of the translated shader cache (default `shader-cache` beside `totk.exe`). | A new folder starts empty, so shaders are translated again during play. | Caution |
-| `shared_fonts` | Folder of the extracted system fonts; the default is `shared-fonts` beside `totk.exe`, else beside the RomFS. | Simplified Chinese, Traditional Chinese and Korean need these fonts: without them the game exits before its first frame in those languages. Other languages do not use them. | Caution |
+| `shader_cache` | Folder of the translated shader cache (default `shader-cache` beside `mrpg.exe`). | A new folder starts empty, so shaders are translated again during play. | Caution |
+| `shared_fonts` | Folder of the extracted system fonts; the default is `shared-fonts` beside `mrpg.exe`, else beside the RomFS. | Simplified Chinese, Traditional Chinese and Korean need these fonts: without them the game exits before its first frame in those languages. Other languages do not use them. | Caution |
 
 ## Shader translation
 
 | Setting | What it does | Effect of changing it | Safety |
 | --- | --- | --- | --- |
-| `xlate` | Path of the shader translator program; the default is `totk_xlate` beside `totk.exe`, else under `build/xlate`. | Shaders are translated by that program; if it is missing the log says so and graphics shaders cannot be translated. | Risky |
+| `xlate` | Path of the shader translator program; the default is `mrpg_xlate` beside `mrpg.exe`, else under `build/xlate`. | Shaders are translated by that program; if it is missing the log says so and graphics shaders cannot be translated. | Risky |
 | `xlate_id` | Text or 64 hex digits that identify the translator build in shader cache keys; the default comes from an `.id` file beside the translator, else a hash of the program. | A value that two different builds share lets the cache serve shaders translated by the other build. | Caution |
 | `xlate_keep` (default `0`) | `1` keeps the translation job of a last-frame variant as `<key>.job` with its code. | Writes extra files to the shader cache folder; meant for running the translator by hand. | Caution |
 | `xlate_procs` (default `2`) | Number of translator processes allowed during play. | More processes translate new shaders sooner and use more CPU and memory; values below 1 count as 1. | Caution |
@@ -123,7 +123,7 @@ Many rows below are developer tools that only act together with another setting 
 | --- | --- | --- | --- |
 | `block_views_3d` (default `0`) | `1` gives 3D block-compressed images block views too. | On some AMD cards a GPU write past the end of the image's memory loses the Vulkan device, and the game stops. | Risky |
 | `deswizzle` (default `auto`) | Where block-linear textures are deswizzled: `auto` or `gpu` uses a compute pass where the texture's storage is an imported pool and the CPU elsewhere, `cpu` always uses the CPU, `check` uses the GPU and also deswizzles every upload on the CPU and compares the two. | `cpu` brings back the long frames on entering new areas (the replay thread deswizzles every texture); `check` waits for the GPU at every upload and is for testing only. The log names the mode in use. | Caution |
-| `dyn_delta` (default `1`) | Records only the pipeline dynamic states (cull mode, depth and stencil tests, vertex input, blend enables, equations and write masks, ...) whose values changed since the last draw in the command buffer, also across pipeline changes; `0` records the full set at every change of pipeline state, as before; `ab` alternates with the `ab` blocks. | Fewer commands per pipeline change on the render and recorder threads; a driver that loses dynamic state across pipeline binds would draw with stale state. `TOTK_TRACE=perf` prints the calls and commands per submission. | Caution |
+| `dyn_delta` (default `1`) | Records only the pipeline dynamic states (cull mode, depth and stencil tests, vertex input, blend enables, equations and write masks, ...) whose values changed since the last draw in the command buffer, also across pipeline changes; `0` records the full set at every change of pipeline state, as before; `ab` alternates with the `ab` blocks. | Fewer commands per pipeline change on the render and recorder threads; a driver that loses dynamic state across pipeline binds would draw with stale state. `MRPG_TRACE=perf` prints the calls and commands per submission. | Caution |
 | `feedback` | `0` samples a target that an earlier draw of the same pass wrote with no barrier; `restart` ends and restarts the pass behind a full barrier; otherwise the feedback-loop layout is used when the GPU supports it. | `0` brings back the old behaviour that the barrier fixed, so the picture can break in passes that read a target they draw into; `restart` costs extra passes. | Risky |
 | `flush_span` (default `0`) | `1` copies one span from the lowest to the highest flushed address of a pool, as an older version did. | Copies far more data to the GPU in crowded towns: an estimated 30-50 ms of GPU time per large copy over PCIe 3.0 x8. | Caution |
 | `shadow_snap` (default `1`) | Shadow storage (Linux, Wine): `1` syncs the pools from per-submission write-watch snapshots, each 2 MiB region queried at most once per submission and shared with the texture checks; `0` queries each pool at every part of a submission, as before. | `1` cut the replay thread's write tracking from about 4.4 to 1.3 ms a frame on a Steam Deck; `0` is for comparison runs. Under Wine/Proton the default is `0` until it has been measured there; `1` turns it on. No effect where shadow storage is off (Windows by default). | Caution |
@@ -142,8 +142,8 @@ Many rows below are developer tools that only act together with another setting 
 | `rec_spin_us` (default `60`) | Microseconds the recorder thread polls for the next packets before it sleeps; `0` polls 4096 pauses instead; `ab` polls only in the B blocks of `ab`. With fewer than 6 logical processors it always polls 4096 pauses. | A longer poll saves an OS wake-up per packet and takes more CPU time; a shorter one sleeps sooner. | Caution |
 | `tex_vram_pressure` (default `90`) | Percent of the device-local memory budget above which released textures are dropped, 0 to 100; `0` is off. First those the game has overwritten with a later texture and left alone for 30 s, then those that can be uploaded again. | A low value drops textures sooner and re-uploads them; `0` keeps them and lets the card spill into system memory. Also a slider in the menu. | Caution |
 | `txd_transpose` (default `1`) | `0` turns off the swap of gradient components for gradient texture samples. | Terrain textures turned across the screen show crawling patches again. | Caution |
-| `ub_overlay` (default `1`) | `0` copies each uniform update inside a pass into its buffer at once, ending the pass with a full barrier; `ab` alternates with the `ab` blocks. | With `0` scenes with many updated blocks (the terrain, the sky islands) take longer on the GPU; `TOTK_TRACE=perf` prints how many updates stayed in their pass. | Caution |
-| `ub_overlay_out` (default `1`) | `0` copies each uniform update between passes into its buffer at once, behind a full barrier of its own; `ab` alternates with the `ab` blocks. Needs `ub_overlay`. | With `0` a run of updates before a pass costs a full GPU barrier each; `TOTK_TRACE=perf` prints how many updates between passes were overlaid. | Caution |
+| `ub_overlay` (default `1`) | `0` copies each uniform update inside a pass into its buffer at once, ending the pass with a full barrier; `ab` alternates with the `ab` blocks. | With `0` scenes with many updated blocks (the terrain, the sky islands) take longer on the GPU; `MRPG_TRACE=perf` prints how many updates stayed in their pass. | Caution |
+| `ub_overlay_out` (default `1`) | `0` copies each uniform update between passes into its buffer at once, behind a full barrier of its own; `ab` alternates with the `ab` blocks. Needs `ub_overlay`. | With `0` a run of updates before a pass costs a full GPU barrier each; `MRPG_TRACE=perf` prints how many updates between passes were overlaid. | Caution |
 | `ubo_snapshot` (default `1`) | `0` binds live memory for uniform blocks; `ab` alternates with the `ab` blocks. | Without snapshots late draws read another object's matrix, so objects can be drawn in the wrong place. | Risky |
 | `vk_no_float64` (default `0`) | `1` clears the 64-bit float feature, so the translator lowers FP64 to FP32. | Shaders change, so the shader cache entries for it are made again; precision of FP64 shaders drops. | Caution |
 | `vk_ssbo_align` (default unset) | Power of two that storage buffer offsets are treated as needing, to test the unaligned path. | The translator and the draw code round storage offsets down to it; shaders are translated again. | Caution |

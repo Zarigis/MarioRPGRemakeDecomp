@@ -6,14 +6,14 @@
 // listed whatever it holds; what the port cannot use is its problem, shown in the menu and logged, and never stops the
 // start. romfs.c serves the RomFS files of the enabled mods, the top one winning a path.
 //
-// The order and the switches are totk.ini keys (cfg.c): TOTK_MODS_ORDER lists names top first, separated by '|' (a
+// The order and the switches are mrpg.ini keys (cfg.c): MRPG_MODS_ORDER lists names top first, separated by '|' (a
 // Windows file name cannot hold '|'; a folder whose name does on Linux is listed as unusable); a folder it does not name
-// goes below the named ones, by name. TOTK_MODS_DISABLED lists the switched-off names. The menu changes the list in
+// goes below the named ones, by name. MRPG_MODS_DISABLED lists the switched-off names. The menu changes the list in
 // place and writes both keys; the scan's state is kept to tell the menu a restart is due.
 //
 // ExeFS patch files: an .ips or .pchtxt file in the exefs folder or in atmosphere/exefs_patches/<name>/ is for the game
 // when its build id is main's (an IPS file's name, a pchtxt file's @nsobid line); others are another version's and
-// counted. The setup builds every mod's files into patch sets and writes build-cache/exefs.status next to totk.exe
+// counted. The setup builds every mod's files into patch sets and writes build-cache/exefs.status next to mrpg.exe
 // (tools/exefs_patches.py has the format): a file whose line is missing or has another content hash waits for the
 // rebuild at start (cheats.c), and its mod stays off until then. A file's writes into main's data (.rodata, .data,
 // .bss) are lines of build-cache/exefs.data, stored into the loaded main before the game runs (mods_exefs_data), as
@@ -115,7 +115,7 @@ static int list_pos(const char *list, const char *name) {
     return -1;
 }
 
-static const char *order_list;   // TOTK_MODS_ORDER while sorting
+static const char *order_list;   // MRPG_MODS_ORDER while sorting
 static int by_order(const void *a, const void *b) {
     const ModInfo *x = a, *y = b;
     int px = list_pos(order_list, x->name), py = list_pos(order_list, y->name);
@@ -172,7 +172,7 @@ static int same_build(const char *hex, size_t n) {
     return 1;
 }
 
-// build-cache/<name> next to totk.exe, read once into *text; "" when there is none (mods_probe_cache sets the text).
+// build-cache/<name> next to mrpg.exe, read once into *text; "" when there is none (mods_probe_cache sets the text).
 static char *status_text, *data_text;
 static const char *build_cache(const char *name, char **text) {
     if (*text) return *text;
@@ -350,9 +350,9 @@ static int scan_cb(const char *name, int kind, uint64_t size, void *ctx) {
     return 1;
 }
 
-// The mods folder into out: TOTK_MODS_DIR, else <dir of totk.exe>/mods. 0 when the exe's path is unknown.
+// The mods folder into out: MRPG_MODS_DIR, else <dir of mrpg.exe>/mods. 0 when the exe's path is unknown.
 static int mods_folder(char *out, size_t cap) {
-    const char *d = cfg_get("TOTK_MODS_DIR");
+    const char *d = cfg_get("MRPG_MODS_DIR");
     if (d && *d) return snprintf(out, cap, "%s", d) < (int)cap;
     char exe[2048];
     if (!plat_exe_path(exe, sizeof exe)) return 0;
@@ -384,7 +384,7 @@ static int peek_cb(const char *name, int kind, uint64_t size, void *ctx) {
 void mods_peek_romfs(void (*cb)(const char *name, const char *romfs, void *ctx), void *ctx) {
     char folder[2048];
     if (!mods_folder(folder, sizeof folder) || !plat_dir_exists(folder)) return;
-    Peek pk = {folder, cfg_get("TOTK_MODS_DISABLED"), cb, ctx};
+    Peek pk = {folder, cfg_get("MRPG_MODS_DISABLED"), cb, ctx};
     plat_fs_list(folder, peek_cb, &pk);
 }
 
@@ -400,8 +400,8 @@ void mods_scan(void) {
     }
     mods = calloc(MAX_MODS, sizeof *mods);
     if (!mods) return;
-    plat_fs_list(dir, scan_cb, (void *)cfg_get("TOTK_MODS_DISABLED"));
-    order_list = cfg_get("TOTK_MODS_ORDER");
+    plat_fs_list(dir, scan_cb, (void *)cfg_get("MRPG_MODS_DISABLED"));
+    order_list = cfg_get("MRPG_MODS_ORDER");
     qsort(mods, nmods, sizeof *mods, by_order);
     order_list = NULL;
     for (int i = 0; i < nmods; i++) {
@@ -616,7 +616,7 @@ const char *mods_dir(void) { return dir; }
 int mods_count(void) { return nmods; }
 ModInfo *mods_at(int i) { return i >= 0 && i < nmods ? &mods[i] : NULL; }
 
-// TOTK_MODS_ORDER as every listed name top first; TOTK_MODS_DISABLED as the switched-off names. A name holding '|'
+// MRPG_MODS_ORDER as every listed name top first; MRPG_MODS_DISABLED as the switched-off names. A name holding '|'
 // would split into two; it is left out of both (its mod is unusable anyway).
 static void write_keys(void) {
     size_t cap = (size_t)nmods * 257 + 1;
@@ -631,8 +631,8 @@ static void write_keys(void) {
                 strcat(off, mods[i].name);
             }
         }
-        cfg_set("TOTK_MODS_ORDER", order);
-        cfg_set("TOTK_MODS_DISABLED", off);
+        cfg_set("MRPG_MODS_ORDER", order);
+        cfg_set("MRPG_MODS_DISABLED", off);
     }
     free(order);
     free(off);

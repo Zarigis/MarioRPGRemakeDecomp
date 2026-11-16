@@ -30,27 +30,27 @@ static struct {
     _Alignas(64) uint64_t put_h;              // producer only: words written
     uint64_t pub_h;                           // the last head published
     uint64_t tail_seen;                       // tail as last read, at most the real one: the room it leaves is there
-    uint64_t pub_words;                       // TOTK_REC_PUB: publish head once this many words wait (pub)
+    uint64_t pub_words;                       // MRPG_REC_PUB: publish head once this many words wait (pub)
 } Q;
 static PlatEvent wake_ev;              // auto-reset
 static VkCommandBuffer rec_cb;         // producer: the part being recorded, whose vkCmd* become packets
 static VkCommandBuffer r_cb;           // recorder: the command buffer its packets go into (set by a BeginCb packet)
 static int rec_live;                   // producer: rec_begin started the recorder for rec_cb
-static int end_mode = -1;              // TOTK_REC_END (rec_own)
+static int end_mode = -1;              // MRPG_REC_END (rec_own)
 static int sub_pending;                // producer: the recorder ended a part that rec_submit has not handed over yet
 static volatile VkResult r_sub_res;    // recorder: the result of its last vkQueueSubmit2, read after the drain
 static volatile VkResult r_sub_err;    // recorder: the first vkQueueSubmit2 that failed (rec_submit reports it)
 static volatile uint64_t q_subs;       // producer: submissions queued for the recorder (rec_submit)
 static volatile uint64_t r_subs;       // recorder: submissions it handed to the driver (submit_run)
 static _Thread_local int on_rec;       // the calling thread is the recorder
-static int rec_async = -1;             // TOTK_REC_ASYNC (rec_submit)
+static int rec_async = -1;             // MRPG_REC_ASYNC (rec_submit)
 static struct { uint64_t n, ns; } RQ_; // waits in rec_queue_wait, logged by rec_stats_log
 static PlatThread *rec_thread;
 static int rec_prio;                   // the submitting thread's priority, which the recorder takes
-static int rec_chk;                    // TOTK_REC_CHECK (rec_check_handle)
-static uint64_t rec_delay_ns;          // TOTK_REC_DELAY_US (rec_main)
-static uint64_t rec_spin_ns;           // TOTK_REC_SPIN_US (rec_main); 0: 4096 pauses
-static int rec_spin_ab;                // TOTK_REC_SPIN_US=ab: the timed poll in the B blocks of TOTK_AB only
+static int rec_chk;                    // MRPG_REC_CHECK (rec_check_handle)
+static uint64_t rec_delay_ns;          // MRPG_REC_DELAY_US (rec_main)
+static uint64_t rec_spin_ns;           // MRPG_REC_SPIN_US (rec_main); 0: 4096 pauses
+static int rec_spin_ab;                // MRPG_REC_SPIN_US=ab: the timed poll in the B blocks of MRPG_AB only
 static volatile uint64_t part_h0;      // Q.put_h at rec_begin: where the packets of the part being recorded start
 static volatile uint64_t part_fence;   // the value of the part being recorded (rec_begin)
 static uint64_t r_sleeps;              // recorder: sleeps on wake_ev, read by rec_stats_log
@@ -87,7 +87,7 @@ static void rec_main(void *arg) {
         uint64_t h = __atomic_load_n(&Q.head, __ATOMIC_ACQUIRE);
         if (t == h) {
             // Poll for the next packets before sleeping: a sleep costs the producer an event set and the recorder
-            // an OS wake-up. The poll is timed (TOTK_REC_SPIN_US, default 60) because a pause takes 8-150 cycles
+            // an OS wake-up. The poll is timed (MRPG_REC_SPIN_US, default 60) because a pause takes 8-150 cycles
             // depending on the CPU: 4096 of them are ~140 us on a Coffee Lake i7 and a few us on Zen 4. With fewer than
             // 6 logical processors it stays 4096 pauses. Savage Wind Recomp's recorder polls 60 us the same way.
             if (rec_spin_ns && (!rec_spin_ab || rt_ab())) {
@@ -111,8 +111,8 @@ static void rec_main(void *arg) {
                 continue;
             }
         }
-        // TOTK_REC_DELAY_US (debug): the recorder falls this far behind each batch it finds, as on a slow machine,
-        // so objects the replay lets go of meet packets it has not made yet (TOTK_REC_CHECK).
+        // MRPG_REC_DELAY_US (debug): the recorder falls this far behind each batch it finds, as on a slow machine,
+        // so objects the replay lets go of meet packets it has not made yet (MRPG_REC_CHECK).
         if (rec_delay_ns) plat_sleep_ns(rec_delay_ns);
         for (int k = 0; t != h; k++) {
             uint64_t w = ring[t % RING_WORDS];
@@ -158,7 +158,7 @@ static void *put(uint32_t op, size_t bytes) {
     wait_space(n);
     ring[pos] = (uint64_t)op | n << 32;
     // Packers reserve room for optional arrays they may leave unwritten (BeginRendering's depth and stencil); with
-    // TOTK_REC_CHECK those words would still hold handles from the ring's previous lap.
+    // MRPG_REC_CHECK those words would still hold handles from the ring's previous lap.
     if (rec_chk) memset(&ring[pos + 1], 0, (n - 1) * 8);
     Q.put_h += n;
     RS_.packets++, RS_.words += n;
@@ -168,13 +168,13 @@ static void *put(uint32_t op, size_t bytes) {
 // After a packet: head moves once Q.pub_words words wait, so the recorder reads a line the producer is still filling
 // once per batch instead of once per packet. Whatever the producer waits for publishes everything first (wait_space,
 // rec_drain), and the packets that begin and end a part go out at once (pub_now), so the recorder begins and ends
-// command buffers as early as before; TOTK_REC_CHECK publishes every packet, since rec_check_handle searches the ring
+// command buffers as early as before; MRPG_REC_CHECK publishes every packet, since rec_check_handle searches the ring
 // up to head.
 // The batch is 64 words (512 bytes) where the recorder polls before it sleeps, 8192 (64 KiB) where it does not (fewer
 // than 6 usable logical processors, rec_spin_ns): there it is mostly asleep when a batch goes out, and each publish
 // cost the producer an event set and the recorder a wake-up. Savage Wind Recomp measured that at 6.7% of its render
 // thread's busy time on 4 cores and moved to 64 KiB there (runtime/nvn/vulkan/record.c rec_init, publish_every).
-// TOTK_REC_PUB=<words> sets the batch; =ab: 64 words in the A blocks of TOTK_AB, 8192 in the B blocks.
+// MRPG_REC_PUB=<words> sets the batch; =ab: 64 words in the A blocks of MRPG_AB, 8192 in the B blocks.
 static int pub_ab;
 static void pub_now(void) {
     Q.pub_h = Q.put_h;
@@ -212,7 +212,7 @@ static void begin_now(VkCommandBuffer cb, int crumb, uint64_t n) {
     if (crumb) vk_crumb(cb, crumb, n);
 }
 
-// The command buffer the following packets go into; begin: the recorder begins it (TOTK_REC_END=1).
+// The command buffer the following packets go into; begin: the recorder begins it (MRPG_REC_END=1).
 typedef struct { VkCommandBuffer cb; int begin, crumb; uint64_t n; } A_BeginCb;
 
 void rec_begin(VkCommandBuffer cb, uint64_t fence, int crumb, uint64_t n) {
@@ -221,21 +221,21 @@ void rec_begin(VkCommandBuffer cb, uint64_t fence, int crumb, uint64_t n) {
         // On by default on every GPU. 0.2.8 turned it on for AMD too, and some RDNA 2, 3 and 4 systems lost the device
         // or hung the GPU at startup (issues #5, #40, #277 and #283: a black screen, or VK_ERROR_DEVICE_LOST with a
         // breadcrumb naming a part of a replay submission), so 0.3.x kept it off on AMD. Since then the recorder
-        // begins, ends and submits its own parts (TOTK_REC_END, which ended a GPU hang on AMD at split submissions),
-        // and AMD players who turned it on reported more FPS, so it is on again; TOTK_VK_RECORDER=0 turns it off
+        // begins, ends and submits its own parts (MRPG_REC_END, which ended a GPU hang on AMD at split submissions),
+        // and AMD players who turned it on reported more FPS, so it is on again; MRPG_VK_RECORDER=0 turns it off
         // where the device is still lost.
         mode = rt_knob("VK_RECORDER", "1");
         if (mode) {
             plat_event_init(&wake_ev, 0, 0);
             rec_prio = plat_thread_priority_get();
             rec_chk = rt_knob("REC_CHECK", "0");   // debug switches, read before the recorder starts
-            const char *d = cfg_get("TOTK_REC_DELAY_US");
+            const char *d = cfg_get("MRPG_REC_DELAY_US");
             rec_delay_ns = d && *d && atoi(d) > 0 ? (uint64_t)atoi(d) * 1000 : 0;
-            const char *sp = cfg_get("TOTK_REC_SPIN_US");
+            const char *sp = cfg_get("MRPG_REC_SPIN_US");
             rec_spin_ab = sp && !strcmp(sp, "ab");
             int spin_us = sp && *sp && !rec_spin_ab ? atoi(sp) : 60;
             rec_spin_ns = spin_us > 0 && plat_cpu_usable() >= 6 ? (uint64_t)spin_us * 1000 : 0;
-            const char *pw = cfg_get("TOTK_REC_PUB");   // words per publish (pub); 0: every packet
+            const char *pw = cfg_get("MRPG_REC_PUB");   // words per publish (pub); 0: every packet
             pub_ab = !rec_chk && pw && !strcmp(pw, "ab");
             Q.pub_words = rec_chk ? 0 : pw && *pw && !pub_ab ? (uint64_t)atoi(pw) : rec_spin_ns ? 64 : 8192;
             if (Q.pub_words > RING_WORDS / 8) Q.pub_words = RING_WORDS / 8;
@@ -245,16 +245,16 @@ void rec_begin(VkCommandBuffer cb, uint64_t fence, int crumb, uint64_t n) {
                 mode = 0;
             } else {
                 rt_log("vk_rec: the replay's Vulkan commands are made by a recorder thread%s",
-                       mode == 2 ? " in the B blocks (TOTK_AB)" : "");
-                if (rec_chk) rt_log("vk_rec: TOTK_REC_CHECK: deferred and destroyed objects are searched in the ring");
+                       mode == 2 ? " in the B blocks (MRPG_AB)" : "");
+                if (rec_chk) rt_log("vk_rec: MRPG_REC_CHECK: deferred and destroyed objects are searched in the ring");
                 if (rec_spin_ns)
-                    rt_log("vk_rec: the recorder polls %llu us before it sleeps%s (TOTK_REC_SPIN_US)",
+                    rt_log("vk_rec: the recorder polls %llu us before it sleeps%s (MRPG_REC_SPIN_US)",
                            (unsigned long long)(rec_spin_ns / 1000), rec_spin_ab ? " in the B blocks" : "");
                 else
-                    rt_log("vk_rec: the recorder polls 4096 pauses before it sleeps (TOTK_REC_SPIN_US)");
-                if (pub_ab) rt_log("vk_rec: head published every 64 words, 8192 in the B blocks (TOTK_REC_PUB=ab)");
-                else rt_log("vk_rec: head published every %llu words (TOTK_REC_PUB)", (unsigned long long)Q.pub_words);
-                if (rec_delay_ns) rt_log("vk_rec: TOTK_REC_DELAY_US: the recorder waits %llu us before each batch",
+                    rt_log("vk_rec: the recorder polls 4096 pauses before it sleeps (MRPG_REC_SPIN_US)");
+                if (pub_ab) rt_log("vk_rec: head published every 64 words, 8192 in the B blocks (MRPG_REC_PUB=ab)");
+                else rt_log("vk_rec: head published every %llu words (MRPG_REC_PUB)", (unsigned long long)Q.pub_words);
+                if (rec_delay_ns) rt_log("vk_rec: MRPG_REC_DELAY_US: the recorder waits %llu us before each batch",
                                          (unsigned long long)(rec_delay_ns / 1000));
             }
         }
@@ -284,7 +284,7 @@ void rec_end(void) {
     rec_live = 0;
 }
 
-// TOTK_REC_END (default 1): a part the recorder records is the recorder's from its begin to its submission: it begins
+// MRPG_REC_END (default 1): a part the recorder records is the recorder's from its begin to its submission: it begins
 // it, makes every command, ends it after the breadcrumb crumb (kind 0: none) that vk_sync.c writes at the end of a
 // submission, and submits it. The submitting thread touches the part pool only while the recorder is idle. That is
 // LAS Recomp's and Savage Wind Recomp's model (runtime/nvn/vulkan/record.h: command buffers allocated once, then only
@@ -292,9 +292,9 @@ void rec_end(void) {
 // recorder recorded and, before that, also ended them. The handoff in rec_drain orders the two threads, so Vulkan
 // allows that split, but on an RX 6700 XT (driver 26.10.1, issue #5) parts ended by the other thread broke when a
 // submission was split (vk_sync.c vk_sync_split): the GPU hung or the scene turned green, then white. Moving the end
-// fixed that; begin and submit followed. TOTK_REC_END=0 brings the old split back: the submitting thread begins,
+// fixed that; begin and submit followed. MRPG_REC_END=0 brings the old split back: the submitting thread begins,
 // ends and submits every part.
-// The line is written only when a part was recorded by the recorder: with the recorder off (TOTK_VK_RECORDER=0) the
+// The line is written only when a part was recorded by the recorder: with the recorder off (MRPG_VK_RECORDER=0) the
 // switch changes nothing, and reports read an unconditional line as proof that the recorder was running (#315).
 typedef struct { int kind; uint64_t n; } A_EndCb;
 int rec_end_cb(VkCommandBuffer cb, int crumb, uint64_t n) {
@@ -302,7 +302,7 @@ int rec_end_cb(VkCommandBuffer cb, int crumb, uint64_t n) {
     int own = rec_own();
     if (rec_live && cb == rec_cb && !said) {
         said = 1;
-        rt_log("vk_rec: a part the recorder records is begun, ended and submitted by %s (TOTK_REC_END=%d)",
+        rt_log("vk_rec: a part the recorder records is begun, ended and submitted by %s (MRPG_REC_END=%d)",
                own ? "the recorder" : "the submitting thread", own);
     }
     if (!rec_live || cb != rec_cb || !own) {
@@ -338,7 +338,7 @@ VkResult rec_submit(const VkSubmitInfo2 *si) {
     if (a->nsig) a->sig = si->pSignalSemaphoreInfos[0];
     __atomic_store_n(&q_subs, q_subs + 1, __ATOMIC_RELEASE);
     RS_.submits++;
-    // TOTK_REC_ASYNC=1 (default): the submitting thread goes on while the recorder catches up with the part and submits
+    // MRPG_REC_ASYNC=1 (default): the submitting thread goes on while the recorder catches up with the part and submits
     // it; it waited here for 0.29 ms a frame in the town on a Ryzen 7900X, 0.34 ms limited to 4 cores. The queue order
     // the present, uploads, readbacks and device waits rely on holds through vk_queue_lock (rec_queue_wait). The values
     // the part signals are counted as issued at once (vk_sync.c): waiting for one on the host before its submission is
@@ -392,7 +392,7 @@ void rec_stats_log(void) {
     memset(&RS_, 0, sizeof RS_);
 }
 
-// TOTK_REC_CHECK=1 (debug, recorder on): the packets of the part being recorded are searched word by word for an object
+// MRPG_REC_CHECK=1 (debug, recorder on): the packets of the part being recorded are searched word by word for an object
 // vk_memory.c lets go of. put() zeroes each packet's room, so only words a packer wrote can match. A hit is a hazard
 // - at a deferral (destroy 0) when the stamp tl is below the part's value: vk_memory.c collect_locked may destroy the
 //   object once the GPU reaches tl, before the part ran and, with the recorder behind, before it made the call;

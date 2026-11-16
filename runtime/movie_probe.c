@@ -1,12 +1,12 @@
-// totk.exe --probe-movie: the host movie::Decoder (ov_movie.c) on one TotK movie from the RomFS.
+// mrpg.exe --probe-movie: the host movie::Decoder (ov_movie.c) on one TotK movie from the RomFS.
 // A small Matroska/WebM demuxer reads the VP9 frames of Event/Movie/<name>.webm (the smallest one, or the first whose
-// path contains TOTK_PROBE_MOVIE). The probe then drives the decoder through the same HOST_OVERRIDE entries the game
+// path contains MRPG_PROBE_MOVIE). The probe then drives the decoder through the same HOST_OVERRIDE entries the game
 // calls, with a Cpu of its own; the guest functions the decoder calls (nn::os::SignalEvent, movie::Buffer,
 // movie::MediaData) are host stand-ins registered as host functions, so rt_call reaches them as it reaches the SDK's.
 //   1. unpaced: every frame in, every frame out: frame count, size, output format, PTS order, events, decode cost;
 //   2. paced at 60 presents per second (fake clock): at most one frame per present, one frame per 2 presents, no drops;
 //   3. paced at 15 presents per second: late frames are dropped, the frame handed over is the one due.
-// Without the RomFS (no game data) it prints why and exits 0. TOTK_PROBE_MOVIE_SHOT=<file.ppm> saves the middle frame.
+// Without the RomFS (no game data) it prints why and exits 0. MRPG_PROBE_MOVIE_SHOT=<file.ppm> saves the middle frame.
 #include <stdarg.h>
 #include <stdio.h>
 #include <math.h>
@@ -184,7 +184,7 @@ static int md_int(PMd *m, const char *k) {
     return e && MDE(e)->kind == K_INT ? MDE(e)->i : -1;
 }
 
-// TOTK_PROBE_MOVIE_SHOT=<file.ppm>: the middle frame as RGB (BT.709, limited range), to look at the NV12 output.
+// MRPG_PROBE_MOVIE_SHOT=<file.ppm>: the middle frame as RGB (BT.709, limited range), to look at the NV12 output.
 static void save_ppm(const char *path, const uint8_t *nv12, int w, int h) {
     FILE *f = fopen(path, "wb");
     if (!f) { printf("probe-movie: cannot write %s\n", path); return; }
@@ -272,7 +272,7 @@ static int paced(uint64_t obj, const uint8_t *data, const Track *t, int limit, u
 // needs no game data. The planes are gradients, which a box filter keeps linear, so every output sample has an expected
 // value: luma rises left to right and top to bottom, U rises left to right, V falls top to bottom. A 16:9 output must give
 // no plan; the others must give bars (Y 16, U = V 128) that are symmetric, a picture of the movie's shape once the game
-// stretches the frame, and samples of the picture where the gradients say. TOTK_PROBE_MOVIE_BENCH=1 also times the frame.
+// stretches the frame, and samples of the picture where the gradients say. MRPG_PROBE_MOVIE_BENCH=1 also times the frame.
 #define FIT_CHECK(cond, ...)                                                                                           \
     do {                                                                                                               \
         if (!(cond)) {                                                                                                 \
@@ -348,7 +348,7 @@ static int check_fit(void) {
                           "%ux%u: chroma at picture (%d,%d) is U %d V %d, want U %.1f V %.1f", ow, oh, cx, cy, q[0], q[1], eu,
                           ev);
             }
-        if (cfg_get("TOTK_PROBE_MOVIE_BENCH")) {
+        if (cfg_get("MRPG_PROBE_MOVIE_BENCH")) {
             uint64_t t0 = plat_now_ns();
             for (int i = 0; i < 100; i++) movie_fit_apply(f, plane, stride, out);
             printf("probe-movie: fit %ux%u: %.2f ms per frame\n", ow, oh, (plat_now_ns() - t0) / 1e8);
@@ -374,7 +374,7 @@ int probe_movie(void) {
         return 0;
     }
     fs_init();
-    const char *want = cfg_get("TOTK_PROBE_MOVIE");
+    const char *want = cfg_get("MRPG_PROBE_MOVIE");
     const char *name = NULL;
     uint64_t best = UINT64_MAX;
     int movies = 0;
@@ -499,7 +499,7 @@ int probe_movie(void) {
                 CHECK(time == t.f[got].pts, "frame %d: PTS %lld, the container says %lld", got, (long long)time,
                       (long long)t.f[got].pts);
                 prev = time;
-                if (got == t.n / 2 && cfg_get("TOTK_PROBE_MOVIE_SHOT")) save_ppm(cfg_get("TOTK_PROBE_MOVIE_SHOT"), frame, t.w, t.h);
+                if (got == t.n / 2 && cfg_get("MRPG_PROBE_MOVIE_SHOT")) save_ppm(cfg_get("MRPG_PROBE_MOVIE_SHOT"), frame, t.w, t.h);
                 if (got % 30 == 0) {   // mean luma of a centre row band: a decoded picture, not a blank buffer
                     uint64_t sum = 0;
                     for (int y = t.h / 2 - 8; y < t.h / 2 + 8; y++)

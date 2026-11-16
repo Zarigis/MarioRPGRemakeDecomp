@@ -663,7 +663,7 @@ NVN_API(nvnWindowSetCrop) {
 // ---------- Present pacing
 // The vsync thread ticks at a fixed 60 Hz whatever the monitor does, so one game frame lasts `interval` ticks. With
 // the real-time frame step (frame_rate.c) game speed does not depend on the interval, so a frame is shown when it is
-// ready, at most at the frame limit (TOTK_FPS_LIMIT: 30 to 240 per second or the monitor's rate): holding it to the
+// ready, at most at the frame limit (MRPG_FPS_LIMIT: 30 to 240 per second or the monitor's rate): holding it to the
 // 2nd or 3rd tick would only add latency and 50 ms frames.
 #define VSYNC_HZ 60ull
 static uint64_t present_period(const win_t *o) {
@@ -696,7 +696,7 @@ static void sleep_until(uint64_t deadline) {
 // present, until the image is free (the game often presents with a lock held). Without the frame queue that is the
 // image's previous present plus one period, when the next frame goes to the display, so a frame gets exactly one period
 // from acquire to present. Its present is a copy already on the queue by its display time, so with the frame queue
-// (TOTK_FRAME_QUEUE=1) the image is free from that time on: the game draws the next frame while the previous one waits
+// (MRPG_FRAME_QUEUE=1) the image is free from that time on: the game draws the next frame while the previous one waits
 // for its turn, and a frame that takes up to one more period still makes its slot, for up to one frame more latency.
 // Town at 4K with DLAA at 60 on an RTX 5070: frames over 17.5 ms 1-8 per 30 s with the queue against 25-33 without.
 NVN_API(nvnWindowAcquireTexture) {
@@ -741,7 +741,7 @@ NVN_API(nvnQueuePresentTexture) {
     nvn_sync_ahead_present();
     gfx_backend()->present(t, o->crop, slot);
     o->ticket[idx] = o->presents;
-    o->avail[idx] = cfg_bool("TOTK_FRAME_QUEUE") ? slot : slot + period;
+    o->avail[idx] = cfg_bool("MRPG_FRAME_QUEUE") ? slot : slot + period;
     frame_step_present(slot, o->interval);   // frame_rate.c: the real-time step follows the display times
     rt_frame_presented(t, o->presents);
 }

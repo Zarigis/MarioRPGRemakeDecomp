@@ -1,4 +1,4 @@
-// DLAA (vk_dlaa.c): NVIDIA DLSS at the scene's own size, behind TOTK_DLAA (totk.ini dlaa = 1).
+// DLAA (vk_dlaa.c): NVIDIA DLSS at the scene's own size, behind MRPG_DLAA (mrpg.ini dlaa = 1).
 #pragma once
 #include "vk.h"
 
@@ -30,7 +30,7 @@ void vk_dlaa_frame(void);
 void vk_dlaa_draw(VkExec *ex);
 void vk_dlaa_scan_draw(const VkExec *ex);   // a chunked replay's scan, at each draw: the camera note of vk_dlaa_draw
 void vk_dlaa_viewport(VkExec *ex, VkViewport *v);
-// vk_mvsurvey.c (TOTK_MV_SURVEY): notes the uniform blocks of each scene draw, beside vk_dlaa_draw; each present
+// vk_mvsurvey.c (MRPG_MV_SURVEY): notes the uniform blocks of each scene draw, beside vk_dlaa_draw; each present
 // compares them with the previous frames' and logs a summary now and then.
 void vk_mvsurvey_draw(VkExec *ex);
 void vk_mvsurvey_frame(void);
@@ -42,13 +42,13 @@ void vk_mvprev_draw(VkExec *ex);   // vk_mvprev.c: notes the scene draw's object
 int vk_mvobj_execute(VkExec *ex, uint64_t cam, VkImageView mv, VkImageView depth, VkFormat depth_fmt, uint32_t w,
                      uint32_t h);
 int vk_dlaa_prev_camera(VkDescriptorBufferInfo *out, float jitter[2]);
-// vk_mvcheck.c (TOTK_MV_CHECK, test): mv_pass hands it the motion image after the camera pass and, after the object
+// vk_mvcheck.c (MRPG_MV_CHECK, test): mv_pass hands it the motion image after the camera pass and, after the object
 // pass, the motion image again and the scene light target it ran on; it measures how well the vectors fit the picture.
 void vk_mvcheck_camera(VkCommandBuffer cb, VkImage mv, uint32_t w, uint32_t h, float jx, float jy);
 void vk_mvcheck_final(VkCommandBuffer cb, uint64_t fence, VkImage mv, VkImage cimg, VkFormat cfmt, uint32_t level,
                       uint32_t layer, uint32_t w, uint32_t h, float jx, float jy);
 const char *vk_mvobj_frame_masks(void);   // vk_exec_draw.c: the last motion list, per position and changed banks
 void vk_mvcheck_output(VkCommandBuffer cb, VkImage out, uint32_t ow, uint32_t oh);   // after DLSS on a check frame
-// vk_exec_draw.c, once a draw's fragment shader is known: 1 skips the draw (the game's FXAA while TOTK_FXAA is 0, its
+// vk_exec_draw.c, once a draw's fragment shader is known: 1 skips the draw (the game's FXAA while MRPG_FXAA is 0, its
 // scaling draw when DLSS wrote the scaled picture).
 int vk_dlaa_skip_draw(VkExec *ex, const GfxShader *fs);

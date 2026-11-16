@@ -4,14 +4,14 @@
 # veneer's body is the site's replacement. The patch page holds three floats the runtime writes at every present
 # (frame_rate.c): +0 the 30 Hz ratio (seconds * 30), +4 the frame step in seconds, +8 the step in 60 Hz ticks.
 
-set fps60    TOTK_FPS60          1
-set realtime TOTK_REALTIME       1
-set cloth    TOTK_CLOTH_REALTIME 1
-set bounce   TOTK_HIGHFPS_FIX    1
-set output   TOTK_PATCH_OUTPUT   0
-set scene    TOTK_PATCH_SCENE    0
-set shadow   TOTK_PATCH_SHADOW   0
-set cascade  TOTK_PATCH_CASCADE  0
+set fps60    MRPG_FPS60          1
+set realtime MRPG_REALTIME       1
+set cloth    MRPG_CLOTH_REALTIME 1
+set bounce   MRPG_HIGHFPS_FIX    1
+set output   MRPG_PATCH_OUTPUT   0
+set scene    MRPG_PATCH_SCENE    0
+set shadow   MRPG_PATCH_SHADOW   0
+set cascade  MRPG_PATCH_CASCADE  0
 
 # 60 fps: the adaptive present-interval controller (main+0x2db174, 1.2.1 0x8f26c8) gets the minimum interval 1.
 site fps60 main 2db204 6b08015f 7100055f   # clamp: cmp w10, #1 (was cmp w10, w8 = minimum)
@@ -62,7 +62,7 @@ site bounce main 562a64 bd402920 bd402920 bd403921 1e210800   # ldr s0, [x9, #0x
 # it on. Each site floors the increment at 1 without the flags: clz is 32 only for 0, so increment += clz >> 5. The
 # scratch register is one the next instruction writes (w10 at 0x0a7ac4: ldrb w10; w11 at the pre-actor sites: add
 # w11), or at 0x95dd24 a temporary the function no longer reads (add, strb, return).
-set fade     TOTK_HIGHFPS_FIX    1
+set fade     MRPG_HIGHFPS_FIX    1
 site fade main 0a7ac4 1e380008 1e380008 5ac0110a 53057d4a 0b0a0108   # fcvtzs w8, s0; clz w10, w8; lsr w10, w10, #5; add w8, w8, w10
 site fade main 95dd24 1e380008 1e380008 5ac0110a 53057d4a 0b0a0108   # the same, second mesh fade
 site fade main 6155e4 1e38000a 1e38000a 5ac0114b 53057d6b 0b0b014a   # fcvtzs w10, s0; clz w11, w10; lsr w11, w11, #5; add w10, w10, w11
@@ -83,10 +83,10 @@ site scene main 585e54 1e220140 bd0cc660    # scvtf s0, w10 -> str s0, [x19, #0x
 site scene main 585e60 bd0cca60 bd0cca61    # str s0, [x19, #0xcc8] -> str s1, [x19, #0xcc8]
 
 # Fixed scene size (MacNativeGames game_patches_v143.c patch_fixed_res; runtime/resolution.c res_dynres_live switches
-# the set on unless TOTK_DYNAMIC_RES=1). The dynamic resolution controller (main+0x584300, 1.2.1 0xcc26f4) steps the
+# the set on unless MRPG_DYNAMIC_RES=1). The dynamic resolution controller (main+0x584300, 1.2.1 0xcc26f4) steps the
 # scene through tiers of 100, 90 and 80 % by a cost model that grows with the scene width squared; at its one epilogue the tier's scale moves into
 # the result, and 1.0 there makes every tier 100 %. The original word is MacNativeGames' check against 1.4.3.
-set fixres   TOTK_FIXED_RES_PATCH 0
+set fixres   MRPG_FIXED_RES_PATCH 0
 site fixres main 5848a8 2a1703e9 52a7f009   # mov w9, w23 -> mov w9, #0x3f800000 (1.0f)
 
 # Camera aspect ratio for a game resolution that is not 16:9 (upstream game_patches_v143.c and aspect_patch.h
@@ -95,25 +95,25 @@ site fixres main 5848a8 2a1703e9 52a7f009   # mov w9, w23 -> mov w9, #0x3f800000
 # (update and setup) load the camera's copy of DefaultAspect 1.777778, two viewport routines divide width by height.
 # The replacement loads the ratio from the page instead, so a 21:9 output shows more of the world at the sides with
 # the vertical view kept (Hor+). x10 is kept on the stack, so no register liveness is assumed.
-set aspect   TOTK_ASPECT_PATCH   0
+set aspect   MRPG_ASPECT_PATCH   0
 site aspect main 628c74 bd414260 f81f0fea @page:x10 bd403940 f84107ea   # ldr s0, [x19, #0x140] (camera update)
 site aspect main b43460 bd406ac0 f81f0fea @page:x10 bd403940 f84107ea   # ldr s0, [x22, #0x68] (camera setup)
 site aspect main 1ff04f4 1e211800 f81f0fea @page:x10 bd403940 f84107ea  # fdiv s0, s0, s1 (viewport)
 site aspect main 253fbb0 1e211800 f81f0fea @page:x10 bd403940 f84107ea  # fdiv s0, s0, s1 (viewport)
 
-# Field of view (runtime/resolution.c res_fov_live writes TOTK_FOV / 100 to page +60 and switches the set). The same two
+# Field of view (runtime/resolution.c res_fov_live writes MRPG_FOV / 100 to page +60 and switches the set). The same two
 # camera routines as the aspect set load the camera's vertical view angle (radians) a few words before the ratio and
 # hand it to sead's perspective projection (+0xa0, then sin / cos / tan of half of it at +0xa4..+0xac). The replacement
 # loads the angle as before and multiplies it by the factor on the page; s8 holds the factor because the next
 # instruction (fmul s8, s0, s1) overwrites it. Zooms the game makes itself (the bow, the scope) scale with it.
-set fov      TOTK_FOV_PATCH      0
+set fov      MRPG_FOV_PATCH      0
 site fov    main 628c3c bd413e60 f81f0fea @page:x10 bd413e60 bd403d48 1e280800 f84107ea   # ldr s0, [x19, #0x13c] (camera update)
 site fov    main b4342c bd4066c0 f81f0fea @page:x10 bd4066c0 bd403d48 1e280800 f84107ea   # ldr s0, [x22, #0x64] (camera setup)
 
 # The camera input update, after its stick dead zone, unit-radius clamp and StickExponent. The host callback
 # performs the displaced store and adds raw mouse counts to s9/s10 (runtime/mouse_direct.c camera_input).
 # Its address is page +0xfd0; the page is main+0x3adf000 on this verified build.
-set mouse_direct TOTK_MOUSE_DIRECT_PATCH 1
+set mouse_direct MRPG_MOUSE_DIRECT_PATCH 1
 site mouse_direct main 874cb4 bd042289 94c9acc7
 site mouse_direct main 874d7c 6d40a3e9 94c9ac91
 site mouse_direct main 18e444 f9400408 94e546db
@@ -205,7 +205,7 @@ site mouse_direct main 23d087c bd403fe9 945c3dc1   # ShieldSurfing: ldr s9, [sp,
 # same frames several times faster and gives the virtual core up for large inputs. Not main+0x547a04: that caller
 # (main+0x547964) resets a static DCtx of its own with which the game's zstd rejects some valid frames
 # (corruption_detected on a 473 KB frame the host decodes), and the game relies on that result.
-set zstd     TOTK_ZSTD_NATIVE    1
+set zstd     MRPG_ZSTD_NATIVE    1
 site zstd   main 5f5358 97e913a6 94d3ab26   # bl ZSTD_decompressMultiFrame -> page+0xff0
 site zstd   main 6d7788 97e58a9a 94d0221a   # bl ZSTD_decompressMultiFrame -> page+0xff0
 site zstd   main bdc8e8 97d17642 94bc0dc2   # bl ZSTD_decompressMultiFrame -> page+0xff0
@@ -215,7 +215,7 @@ site zstd   main bdc910 97d17634 94bc0db4   # bl ZSTD_decompress_usingDDict -> p
 site zstd   main 1852314 979f9fb3 948a3733  # bl ZSTD_decompress_usingDDict -> page+0xfe0
 
 # Spin waits, from tools/spin_waits.py --exefs build/extracted/v143/exefs --patches recomp/patches-v143.txt: loops that only
-# another thread can end; their back-edges pass rt_spin_gate (runtime/kernel.c), TOTK_SPIN=0 keeps the core.
+# another thread can end; their back-edges pass rt_spin_gate (runtime/kernel.c), MRPG_SPIN=0 keeps the core.
 spin main 231dc 231ec   # 5 instructions; loads
 spin main 24780 24790   # 5 instructions; loads
 spin main 5748c 574a0   # 6 instructions; loads
@@ -1100,7 +1100,7 @@ site cascade main 6fad4c 52a86408 @page:x8 b9404d08   # mov w8, #160.0 -> ldr w8
 # g takes u = max(page +0, r): the patch page's 30 Hz frame ratio without the time scale (runtime/frame_rate.c), so
 # slow motion at 30 or 60 fps keeps the shipping factor and only a real frame rate above 60 raises it; the runtime
 # switches the set off without the real-time step, where the page is not written.
-set climb    TOTK_CLIMB_FIX      1
+set climb    MRPG_CLIMB_FIX      1
 site climb main 1f497f4 1e201001 @page:x8 bd400104 1e286884 52946dc8 72a7e528 1e270102 1e241842 52828248 72a7dfe8 1e270103 1e232842 529573e8 72a7b5a8 1e270103 1f040862 1e2a3883 2f00e404 1e246863 1e261004 1f048862 1e241004 1e247842 1e226800 1e201001 1e226821   # fmov s1, #2.0 -> s2 = g(u); s0 = max(s0, s2); s1 = max(2.0, s2)
 
 # Shorter scene changes (fast_unload): when a scene is unloaded (the sequence node SeqExecuteDeleteAllActor, update
@@ -1114,7 +1114,7 @@ site climb main 1f497f4 1e201001 @page:x8 bd400104 1e286884 52946dc8 72a7e528 1e
 # makes on the first call only (0xdb1254), are then made on every call, as the effect side's always are. Deletions
 # in play keep their fades. x16 and x17 are scratch registers no compiler output keeps across these instructions,
 # and no replacement writes the flags.
-set fastunload TOTK_FAST_UNLOAD 1
+set fastunload MRPG_FAST_UNLOAD 1
 site fastunload main db11a8 3943fd08 3943fd08 d0016930 f9425e10 f9400610 b9460210 121b0610 2a100108   # w8 = flag byte, or non-zero while deleting all
 site fastunload main db1254 370005b6 d0016930 f9425e10 f9400610 b9460210 121b0610 2a500610 0a7016d1 370005b1   # skip the stop requests only on a later call outside delete-all
 site fastunload main db1300 b9401c08 b9401c08 d0016930 f9425e10 f9400610 b9460210 121b0610 2a100108   # w8 = [user + 0x1c], or non-zero while deleting all
@@ -1124,7 +1124,7 @@ site fastunload main db1300 b9401c08 b9401c08 d0016930 f9425e10 f9400610 b946021
 # and dropping the previous visit's surplus cave chunks zeroes and holds that counter. The load of the counter becomes
 # a call of the host (runtime/patches.c cave_stable, page +0xf60), which returns in w10 a count of the same quiet ticks
 # that only an added chunk restarts. The function saved x30 in its prologue and has called before, so the bl's link write is harmless.
-set cavewait TOTK_CAVE_WAIT 1
+set cavewait MRPG_CAVE_WAIT 1
 site cavewait main 99e778 b940014a 94c505fa   # ldr w10, [x10] -> bl page + 0xf60
 
 # Sharper text at high resolutions (font_scale, runtime/resolution.c font_init): the game draws its outline fonts into
@@ -1136,7 +1136,7 @@ site cavewait main 99e778 b940014a 94c505fa   # ldr w10, [x10] -> bl page + 0xf6
 # with an absolute font size divide by the font's width and height when drawn (main 0x10b7468) and need nothing.
 # Free registers: at 0xc625e4 the function has only pointer arguments and has not called yet (x9, s0, s1); both ratio
 # sites follow a call, x8 is loaded again before its next read and s1 is not read before the next call.
-set fontres  TOTK_PATCH_FONTRES  0
+set fontres  MRPG_PATCH_FONTRES  0
 site fontres main c625e4 b9400828 b9400828 @page:x9 bd406120 1e230101 1e200821 1e240028   # w8 = round(size * [page+96])
 site fontres main 60b24c 1e200900 1e200900 @page:x8 bd406501 1e210800   # width ratio * [page+100]
 site fontres main 60b26c 1e200900 1e200900 @page:x8 bd406501 1e210800   # height ratio, the same
@@ -1153,7 +1153,7 @@ site fontres main 60b26c 1e200900 1e200900 @page:x8 bd406501 1e210800   # height
 # the layout's own heap (the pool is made on the heap passed in), and at four times the size a screen with many such
 # panes, the merchant's sell list, ran that heap out: the next pane allocation returned null and main+0x404180
 # appended it (crash reading 0x8). The level name is sharp without that site.
-set capres   TOTK_PATCH_CAPRES   0
+set capres   MRPG_PATCH_CAPRES   0
 site capres main 50aa44 1e202108 @page:x8 bd406900 1e200908 1e200929 1e202108   # static (pooled texture): s8, s9 *= [page+104]
 site capres main 1be838 1e210808 @page:x8 bd406903 1e230800 1e210808            # dynamic: CaptureScale *= [page+104]
 # The work texture a capture is drawn into (main 0x1bfae0, "CapturePaneWork") follows the output size only with the

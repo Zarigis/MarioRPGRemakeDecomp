@@ -10,14 +10,14 @@ A PR that touches these areas must keep them.
 - **Queue order.** When anything is submitted, every earlier part is already on the queue. Present, uploads, readbacks
   from guest threads and the `vkDeviceWaitIdle` sites rely on it. The recorder thread now begins, ends and submits
   the parts it records; the submitting thread still waits for that submission, so the order holds.
-  `TOTK_REC_END=0` restores the old split.
+  `MRPG_REC_END=0` restores the old split.
 - **GPU-written memory is never frozen.** Storage-buffer stores, copies and fills land in imported guest memory
   without a fault or a write-watch bit, so a region only the GPU writes looks idle. Such regions are never frozen
   read-only, and a frozen region is thawed before a GPU write. LAS Recomp never changes the protection of imported
   memory because of NVIDIA. A suspected cause of NVIDIA "write invalid" device faults (#788, #802), not proven.
 - **VRAM pressure.** Under pressure, released textures whose storage the game has given to another texture go first:
   30 s after release and once no finalized slot has bound them for 600 submits. Clean mirrored entries wait 5 s.
-  Both stop once use is back under the line. A PR touching texture lifetime is tested with `TOTK_VRAM_LIMIT_MIB`.
+  Both stop once use is back under the line. A PR touching texture lifetime is tested with `MRPG_VRAM_LIMIT_MIB`.
 - **Texture pins are freed.** Each pin counts the recording copies naming it and is freed 1200 submits after its last
   use unless the replay holds it as a render target. Before that, pins leaked ~44 MiB a game minute (#670).
 
@@ -35,7 +35,7 @@ If a PR touches this code, confirm the fix still holds.
 | black dialog background and loading map | 3D targets rejected, the grading LUT never written | `vk_exec.c` `resolve_target` |
 | streaks on cliffs | primitive restart ignored | `vk_exec_draw.c` `restart_for` |
 | streaky map screen | the newest texture picked at shared storage | `vk_texture.c` `vk_texture_by_id` |
-| dark 16x16 blocks on the ground, sage spirit not drawn | G-buffer feedback loop | `vk_exec_draw.c`, `TOTK_FEEDBACK` |
+| dark 16x16 blocks on the ground, sage spirit not drawn | G-buffer feedback loop | `vk_exec_draw.c`, `MRPG_FEEDBACK` |
 | magenta cave walls, brown sky | CPU-filled textures without a flush | write-watched mirrors, `vk_memory.c`, `vk_texture.c` |
 | black 3D scene | deferred texture binds | `nvn_api_cmd.c` `Bind*Deferred` |
 | HUD prompt boxes, black stamina wheel | `nvnTextureCompare` ignored the channel mapping | `nvn_api_obj.c` |

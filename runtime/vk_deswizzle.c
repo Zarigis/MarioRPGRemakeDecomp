@@ -4,7 +4,7 @@
 // (50-236 ms frames on entering new areas, 2026-11-07 play sessions). The same design as MacNativeGames' TotK port
 // (d2r_gfx nvn_mtl.m: deswizzle from the pool at GPU execution time), written for Vulkan from our CPU layout code.
 //
-// TOTK_DESWIZZLE = auto (default) / gpu: the compute pass where the storage is an imported pool (vk_mem_span_live),
+// MRPG_DESWIZZLE = auto (default) / gpu: the compute pass where the storage is an imported pool (vk_mem_span_live),
 // the CPU otherwise; cpu: always the CPU; check: gpu, and every upload is also deswizzled on the CPU and compared
 // (waits for the GPU; for testing only).
 #include <stdlib.h>
@@ -75,19 +75,19 @@ int vk_deswz_mode(void) {
         G.mode = -1;
     }
     if (G.mode < 0) {
-        const char *e = cfg_get("TOTK_DESWIZZLE");
+        const char *e = cfg_get("MRPG_DESWIZZLE");
         if (!e || !*e) e = "auto";
         int want = !strcmp(e, "cpu") || !strcmp(e, "0") ? VK_DESWZ_CPU : !strcmp(e, "check") ? VK_DESWZ_CHECK : VK_DESWZ_GPU;
         if (strcmp(e, "auto") && strcmp(e, "gpu") && strcmp(e, "1") && strcmp(e, "cpu") && strcmp(e, "0") &&
             strcmp(e, "check"))
-            rt_log("vk: TOTK_DESWIZZLE=%s is not auto, gpu, cpu or check: auto", e);
+            rt_log("vk: MRPG_DESWIZZLE=%s is not auto, gpu, cpu or check: auto", e);
         if (want != VK_DESWZ_CPU && !create_pipeline(c)) {
             rt_log("vk: the deswizzle compute pass is unavailable on %s: textures deswizzle on the CPU", c->props.deviceName);
             want = VK_DESWZ_CPU;
         }
         G.mode = want;
         rt_log("vk: block-linear textures deswizzle on the %s%s", want == VK_DESWZ_CPU ? "CPU" : "GPU where the storage is "
-               "an imported pool", want == VK_DESWZ_CHECK ? ", checked against the CPU (TOTK_DESWIZZLE=check)" : "");
+               "an imported pool", want == VK_DESWZ_CHECK ? ", checked against the CPU (MRPG_DESWIZZLE=check)" : "");
     }
     m = G.mode;
     plat_mutex_unlock(&g_lock);

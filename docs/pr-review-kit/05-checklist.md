@@ -20,7 +20,7 @@
 - [ ] New Vulkan code queries the feature and has a fallback; nothing hardcoded for one GPU.
 - [ ] Invariants kept: queue order, GPU-written memory never frozen, VRAM pressure path, pins freed.
 - [ ] Players without the feature see no change. The default for everyone stays for one setup's sake.
-- [ ] New behaviour behind a switch. A new setting described in `totk.ini.example` and `docs/settings.md`.
+- [ ] New behaviour behind a switch. A new setting described in `mrpg.ini.example` and `docs/settings.md`.
 - [ ] Player-visible text in the catalogs, in every menu language (`runtime/ui_text.c`, `installer/text/*.json`).
 - [ ] Copied code: allowed licence, header kept, row in `THIRD_PARTY_NOTICES.md`. No GPL code.
 - [ ] Generated C not edited by hand.

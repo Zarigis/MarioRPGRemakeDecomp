@@ -453,11 +453,11 @@ static void test_cores(Cpu *c) {
     int now, held_max;
     kern_core_stats(&now, &held_max);
     uint32_t cpus = plat_cpu_usable();
-    int gate = !cfg_bool("TOTK_FREE_CORES");   // the kernel's own switch
+    int gate = !cfg_bool("MRPG_FREE_CORES");   // the kernel's own switch
     int ok = g_run_max <= 3 && held_max <= 3 && !g_core_clash && (cpus < 4 || g_run_max == 3);
     printf("virtual cores: %d threads x %d runs on %u host CPUs: at most %d running guest code at once, at most %d "
            "core holders (kernel count), %d core-number clashes: %s\n", CORE_WORKERS, CORE_RUNS, cpus, g_run_max,
-           held_max, g_core_clash, !gate ? "not checked (TOTK_FREE_CORES is set)" : ok ? "ok" : "FAIL");
+           held_max, g_core_clash, !gate ? "not checked (MRPG_FREE_CORES is set)" : ok ? "ok" : "FAIL");
     CHECK(ok || !gate, "virtual cores");
 }
 
@@ -741,7 +741,7 @@ static void test_platform(void) {
 
 // ---- crash report (main.c crash_handler): a child faults on a guest thread with known values in rbx and x19; the
 // report must hold the host registers, the faulting instruction's bytes and the memory both values point at.
-#define CRASH_CHILD_ENV "TOTK_PROBE_KERNEL_CRASH_CHILD"
+#define CRASH_CHILD_ENV "MRPG_PROBE_KERNEL_CRASH_CHILD"
 static uint64_t crash_host_words[6] = {0, 0, 0x5ca1ab1e0c0de001ull, 0, 0, 0};
 static uint64_t crash_guest_words[6] = {0, 0, 0x5ca1ab1e0c0de002ull, 0, 0, 0};
 

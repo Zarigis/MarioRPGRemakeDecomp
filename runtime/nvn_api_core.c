@@ -268,7 +268,7 @@ NVN_API(nvnMemoryPoolBuilderSetStorage) {
 NVN_API(nvnMemoryPoolBuilderSetFlags) { ((pool_builder_t *)arg_p(c, 0))->flags = (uint32_t)arg_x(c, 1); }
 // NVNboolean nvnMemoryPoolInitialize(NVNmemoryPool *p, const NVNmemoryPoolBuilder *b)
 // Pool setup imports, mirrors and maps memory in the back end (the driver, VirtualAlloc): up to 20 ms on the game's
-// loader threads, which held a virtual core through it while job workers waited (TOTK_CORE_DIAG). The thread gives
+// loader threads, which held a virtual core through it while job workers waited (MRPG_CORE_DIAG). The thread gives
 // the core up, as for any blocking host call.
 NVN_API(nvnMemoryPoolInitialize) {
     NVN_BLOCKING();
@@ -501,7 +501,7 @@ void nvn_sync_signalled(void *sync) {
 // void nvnQueueWaitSync(NVNqueue *q, const NVNsync *s): the queue's later commands wait for the sync on the GPU side.
 // Submissions replay in order here, so the commands the sync fences have already been handed to the back end.
 NVN_API(nvnQueueWaitSync) { (void)c; }
-// TOTK_SYNC_AHEAD=1: one more frame in flight. Each frame the game waits (one nvnSyncWait, frame_wait_lr) for
+// MRPG_SYNC_AHEAD=1: one more frame in flight. Each frame the game waits (one nvnSyncWait, frame_wait_lr) for
 // the frame it presented last; on the Switch that work is long done by then, here it is still in the replay and on the
 // GPU (about 11 ms from the submit), and the wait sets the frame time. With the switch on, that wait, and only that
 // one, waits for the frame before it instead. What the game reads back of GPU results after the wait can then be a
@@ -519,21 +519,21 @@ static uint64_t frame_wait_lr(void) {
 static int sync_ahead(void) {
     static int on = -1;
     if (on < 0) {
-        on = cfg_bool("TOTK_SYNC_AHEAD");
+        on = cfg_bool("MRPG_SYNC_AHEAD");
         // Without shadow storage the GPU reads the game's own memory, which the game writes ahead: nothing guards
         // that. The Vulkan back end sets the mode while it starts, before the game's first present or wait; the null
         // back end never does.
         if (on && !vk_mem_shadow_on()) {
-            rt_log("nvn: TOTK_SYNC_AHEAD needs shadow storage (TOTK_SHADOW=1 on native Windows); "
+            rt_log("nvn: MRPG_SYNC_AHEAD needs shadow storage (MRPG_SHADOW=1 on native Windows); "
                    "the game waits for the GPU as before");
             on = 0;
         }
         if (on && !frame_wait_lr()) {
-            rt_log("nvn: TOTK_SYNC_AHEAD: no frame wait site is known for this game version; the game waits for the "
+            rt_log("nvn: MRPG_SYNC_AHEAD: no frame wait site is known for this game version; the game waits for the "
                    "GPU as before");
             on = 0;
         }
-        if (on) rt_log("nvn: TOTK_SYNC_AHEAD: a wait for the frame presented last waits for the frame before it");
+        if (on) rt_log("nvn: MRPG_SYNC_AHEAD: a wait for the frame presented last waits for the frame before it");
     }
     return on;
 }
@@ -674,12 +674,12 @@ NVN_API(nvnQueueFinish) {
 // the replay, and that frame draws other objects' matrices (phantom rocks, flat far field).
 // The guard makes the producer wait, at its commit point, until the newest submit has been replayed and completed.
 // lod_entered / lod_issued count submits that entered QueueSubmitCommands / reached the back end; lod_fence holds
-// the fence of the last LOD_RING. TOTK_LOD_GUARD=0 turns the wait off.
+// the fence of the last LOD_RING. MRPG_LOD_GUARD=0 turns the wait off.
 #define LOD_RING 64
 static uint64_t lod_entered, lod_issued, lod_fence[LOD_RING];
 
 // void nvnQueueSubmitCommands(NVNqueue *q, int n, const NVNcommandHandle *handles): replayed on this thread with its
-// core given up (section 2.2), or queued for the replay thread (TOTK_REPLAY_ASYNC, vk_backend.c); the newest fence
+// core given up (section 2.2), or queued for the replay thread (MRPG_REPLAY_ASYNC, vk_backend.c); the newest fence
 // value is what QueueFenceSync records. With the queue the fence covers replay and GPU, so the LOD guard below waits
 // for both.
 NVN_API(nvnQueueSubmitCommands) {
@@ -719,7 +719,7 @@ static void obs_release_read(Cpu *c) {
     if (lr != 0x70008c70c8ull) return;
     static int on = -1;
     if (on < 0) {
-        on = cfg_bool("TOTK_LOD_GUARD");
+        on = cfg_bool("MRPG_LOD_GUARD");
     }
     if (!on || *(volatile uint8_t *)(uintptr_t)(obj + 0x528) != *(volatile uint8_t *)(uintptr_t)(obj + 0x529)) return;
     uint64_t e = __atomic_load_n(&lod_entered, __ATOMIC_SEQ_CST);

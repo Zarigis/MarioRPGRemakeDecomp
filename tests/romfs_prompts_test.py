@@ -1,7 +1,7 @@
 """tools/make_romfs_patches.py --prompts and tools/button_icons.py on a RomFS made here, with no game files: each prompt
 names the label of the Xbox button that the pad layout presses, the shoulder buttons, triggers, Plus, Minus and the
 d-pad are drawn as on an Xbox controller, the PC prompts draw every button as its key or mouse button (the defaults or
-a totk.ini's bind_ lines), the resource size table grows with the fonts, every other file and member stays byte for
+a mrpg.ini's bind_ lines), the resource size table grows with the fonts, every other file and member stays byte for
 byte, the same input gives the same output, and a RomFS the tool does not recognise fails before it writes anything. Both game versions: 1.2.1 (Common.Product.110, 72x72 button guide images) and 1.4.3
 (Common.Product.140, 108x108).
 
@@ -390,7 +390,7 @@ def manifest(out):
 class PromptsTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.tmp = tempfile.TemporaryDirectory(prefix='totk-prompts-')
+        cls.tmp = tempfile.TemporaryDirectory(prefix='mrpg-prompts-')
         cls.base = Path(cls.tmp.name)
         cls.romfs = {v: Romfs(cls.base / v / 'romfs', v) for v in VERSIONS}
         cls.outs = {}
@@ -554,7 +554,7 @@ class PromptsTest(unittest.TestCase):
 
     def test_pc_prompts_follow_the_bind_lines(self):
         romfs = self.romfs['v143']
-        ini = self.base / 'binds' / 'totk.ini'
+        ini = self.base / 'binds' / 'mrpg.ini'
         ini.parent.mkdir(parents=True)
         ini.write_text('[input]\n# bind_A = key:q\nbind_A = pad:east, key:F\nbind_B = pad:south\nbind_X = key:default\n',
                        encoding='utf-8')
@@ -594,7 +594,7 @@ class PromptsTest(unittest.TestCase):
         self.assertEqual(set(json.loads(proc.stdout.strip().splitlines()[-1])['reused']), shared)
         # A new run into the source folder replaces its files instead of writing through the links.
         before = {p: (self.base / 'reuse' / 'pc' / p).read_bytes() for p in manifest(pc)}
-        ini = self.base / 'reuse' / 'totk.ini'
+        ini = self.base / 'reuse' / 'mrpg.ini'
         ini.write_text('[input]\nbind_A = key:F\n', encoding='utf-8')
         proc = romfs.run(source, '--prompts', 'pc', '--binds', str(ini))
         self.assertEqual(proc.returncode, 0, proc.stderr)

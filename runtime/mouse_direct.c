@@ -52,7 +52,7 @@
 
 static int direct_mode(void) {
     // cfg_value: unset is the settings table's default (direct), as the menu shows it
-    return !strcmp(cfg_value("TOTK_MOUSE_MODE"), "direct") && rt_patch_enabled(rt_patch_set("mouse_direct"));
+    return !strcmp(cfg_value("MRPG_MOUSE_MODE"), "direct") && rt_patch_enabled(rt_patch_set("mouse_direct"));
 }
 
 static uint64_t last_update;
@@ -373,14 +373,14 @@ static void camera_input(Cpu *c) {
     if (direct_mode()) {
         int32_t dx, dy;
         input_direct_mouse_sample(!input_direct_mouse_selector_active() && (accept || hand_active(plat_now_ns())), &dx, &dy);
-        float sensitivity = (float)cfg_double("TOTK_MOUSE_SENS");
+        float sensitivity = (float)cfg_double("MRPG_MOUSE_SENS");
         sensitivity = fminf(10, fmaxf(0, sensitivity));
         uint32_t player = (dx || dy) ? player_state_logged() : 0;
         next.player = player;
         int ability = (player & PLAYER_ABILITY) != 0;
         // The bow drawn (in hand with ZR held): mouse_aim_scale times the mouse's motion on every path
         if ((player & PLAYER_BOW) && (input_buttons_last() & (1ull << B_ZR)))
-            sensitivity *= (float)fminf(3, fmaxf(0.1, cfg_double("TOTK_MOUSE_AIM_SCALE")));
+            sensitivity *= (float)fminf(3, fmaxf(0.1, cfg_double("MRPG_MOUSE_AIM_SCALE")));
         // Ultrahand holding an object: a shake of the mouse swings the right stick with it (mouse_shake_step)
         static MouseShake shake;
         static int last_side;

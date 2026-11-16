@@ -290,7 +290,7 @@ def cases_h():
 
 
 def check_c(cc):
-    with tempfile.TemporaryDirectory(prefix='totk-cheats-') as tmp:
+    with tempfile.TemporaryDirectory(prefix='mrpg-cheats-') as tmp:
         folder = Path(tmp)
         (folder / 'check.c').write_text(HARNESS)
         (folder / 'cases.h').write_text(cases_h())

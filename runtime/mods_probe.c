@@ -1,4 +1,4 @@
-// --probe-mods: the mods folder scan, its order and switches (mods.c). Builds a mods folder of its own next to totk.exe,
+// --probe-mods: the mods folder scan, its order and switches (mods.c). Builds a mods folder of its own next to mrpg.exe,
 // scans it and removes it. Also the resource size table's entries of the members of the mods' packs (restbl_probe.c).
 // Needs no game files.
 #include <stdio.h>
@@ -89,9 +89,9 @@ static void probe_data(const char *root) {
              "%08X\t%08X\t28\tAA\n",                       // Y, above X in the order: its byte stays
              kn, c, kn, c, c, kp, c, kq, c, kx, c, ky, c);
     mods_probe_cache(status, data);
-    cfg_set("TOTK_MODS_DIR", root);
-    cfg_set("TOTK_MODS_ORDER", "Y");   // Y on top, the rest by name: Y N P Q X
-    cfg_set("TOTK_MODS_DISABLED", "");
+    cfg_set("MRPG_MODS_DIR", root);
+    cfg_set("MRPG_MODS_ORDER", "Y");   // Y on top, the rest by name: Y N P Q X
+    cfg_set("MRPG_MODS_DISABLED", "");
     mods_rescan();
     mods_scan();
     ModInfo *n = by_name("N"), *p = by_name("P"), *q = by_name("Q");
@@ -161,9 +161,9 @@ int probe_mods(void) {
     snprintf(ips, sizeof ips, "M/atmosphere/exefs_patches/x/%s.ips", *mods_main_build_id() ? mods_main_build_id() : "0");
     put(root, ips);
 
-    cfg_set("TOTK_MODS_DIR", root);
-    cfg_set("TOTK_MODS_ORDER", "B|A|Gone");
-    cfg_set("TOTK_MODS_DISABLED", "C");
+    cfg_set("MRPG_MODS_DIR", root);
+    cfg_set("MRPG_MODS_ORDER", "B|A|Gone");
+    cfg_set("MRPG_MODS_DISABLED", "C");
     mods_scan();
 
     static const char *const order[] = {"B", "A", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
@@ -200,17 +200,17 @@ int probe_mods(void) {
 
         mods_move(1, -1);
         CHECK(EQ(mods_at(0)->name, "A") && EQ(mods_at(1)->name, "B"), "move up");
-        CHECK(EQ(cfg_get("TOTK_MODS_ORDER"), "A|B|C|D|E|F|G|H|I|J|K|L|M|Ultra \xD0\x96"),
+        CHECK(EQ(cfg_get("MRPG_MODS_ORDER"), "A|B|C|D|E|F|G|H|I|J|K|L|M|Ultra \xD0\x96"),
               "order written without the gone name");
         mods_move(0, -1);
         CHECK(EQ(mods_at(0)->name, "A"), "move up at the top does nothing");
         mods_move(N - 1, 1);
         CHECK(EQ(mods_at(N - 1)->name, "Ultra \xD0\x96"), "move down at the bottom does nothing");
         mods_set_enabled(2, 1);
-        const char *dis = cfg_get("TOTK_MODS_DISABLED");
+        const char *dis = cfg_get("MRPG_MODS_DISABLED");
         CHECK(mods_at(2)->enabled && (!dis || !*dis), "switching C on empties mods_disabled");
         mods_set_enabled(0, 0);
-        CHECK(EQ(cfg_get("TOTK_MODS_DISABLED"), "A"), "switching A off writes it");
+        CHECK(EQ(cfg_get("MRPG_MODS_DISABLED"), "A"), "switching A off writes it");
         CHECK(mods_changed(), "changes seen");
     }
     probe_data(root);

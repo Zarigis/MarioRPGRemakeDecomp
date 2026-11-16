@@ -25,7 +25,7 @@
 Before writing or taking a perf change, compute its ceiling: the share of the code it removes times the share of the
 frame that code holds on the critical path, on weak hardware. A ceiling of a few percent or less is not worth it.
 
-- Use the critical path (`TOTK_CRIT` + `tools/crit_path.py`, heavy frames only), not one thread's profile. On the weak
+- Use the critical path (`MRPG_CRIT` + `tools/crit_path.py`, heavy frames only), not one thread's profile. On the weak
   laptop the submit thread is 55% replay, yet the critical path of heavy frames is 67% guest code, 15%
   `nvnSyncWait`, 13% core waits and wake latency.
 - Changes that can move the frame by 10% or more are usually design changes. Polishing a hot function from a flat
@@ -46,7 +46,7 @@ out is.
 ## How to measure
 
 - **By game time, never by frame counts.** Run length, analysis windows, A/B blocks and input scripts go by the world
-  clock (`--seconds`, `TOTK_CRIT=w<lo>-<hi>`, `TOTK_PROFILE_FRAMES=w<lo>-<hi>`, `TOTK_SHOTS=w<lo>-<hi>:<step>`). The
+  clock (`--seconds`, `MRPG_CRIT=w<lo>-<hi>`, `MRPG_PROFILE_FRAMES=w<lo>-<hi>`, `MRPG_SHOTS=w<lo>-<hi>:<step>`). The
   same frame count at another fps is another scene.
 - **Check a scripted run reached the world.** Title menus on a slow boot eat button presses; confirm the run is in the
   world before trusting its numbers.
@@ -55,12 +55,12 @@ out is.
   5.84/5.73 against 5.76/5.73 ms, nothing. In-run A/B only on a static scene (standing still).
 - **Spread.** One script on near-identical builds gave 1% lows from 31.5 to 50 fps. Compare medians of three runs,
   never one run against one run.
-- **A quiet machine.** `tools/run_game.py --quiet` takes the machine-wide lock; no other `totk.exe`, build or test runs
+- **A quiet machine.** `tools/run_game.py --quiet` takes the machine-wide lock; no other `mrpg.exe`, build or test runs
   meanwhile. One game at a time.
 - **A warm shader cache, prepared properly.** Shader and pipeline caches are not copied between build dirs:
-  `totk.exe --prepare-shaders` or `--warm-shaders` in that dir. The AMD driver cache is keyed to the exe path and
+  `mrpg.exe --prepare-shaders` or `--warm-shaders` in that dir. The AMD driver cache is keyed to the exe path and
   limited in size: preparing another build dir can evict this one's libraries (40-220 ms per new effect in play).
-- **A heavy scene.** A fight with a large enemy and a crowd, fps limit at the maximum (`TOTK_FPS_LIMIT=360`). Compare
+- **A heavy scene.** A fight with a large enemy and a crowd, fps limit at the maximum (`MRPG_FPS_LIMIT=360`). Compare
   one shot with the scene's reference before trusting numbers.
 - **No base runs by habit.** Run the candidate alone and judge it against the targets: max fps, zero slow frames
   (`perf: slow frame`), no black or flat frames, no new validation errors. Glitches are found by looking at shots and
@@ -68,11 +68,11 @@ out is.
 
 | What | How |
 |---|---|
-| fps, worst frame, render-thread buckets, GPU busy, VRAM | `--env TOTK_TRACE=perf,sched`, then `python tools/perf_summary.py <log> <lo> <hi>` |
-| the frame's critical path | `TOTK_CRIT=w<lo>-<hi>` + `TOTK_CRIT_OUT=<path>`, then `python tools/crit_path.py <file>` |
-| sampling profiler | `TOTK_PROFILE=<path>` + `TOTK_PROFILE_FRAMES=w<lo>-<hi>`, then `tools/prof_report.py <profile> <totk.map>` |
-| A/B on a static scene | `TOTK_AB=<seconds>`, then `tools/ab_summary.py --skip <seconds>` |
-| VRAM pressure on a large card | `TOTK_VRAM_LIMIT_MIB=<MiB>` caps the budget the port sees |
+| fps, worst frame, render-thread buckets, GPU busy, VRAM | `--env MRPG_TRACE=perf,sched`, then `python tools/perf_summary.py <log> <lo> <hi>` |
+| the frame's critical path | `MRPG_CRIT=w<lo>-<hi>` + `MRPG_CRIT_OUT=<path>`, then `python tools/crit_path.py <file>` |
+| sampling profiler | `MRPG_PROFILE=<path>` + `MRPG_PROFILE_FRAMES=w<lo>-<hi>`, then `tools/prof_report.py <profile> <mrpg.map>` |
+| A/B on a static scene | `MRPG_AB=<seconds>`, then `tools/ab_summary.py --skip <seconds>` |
+| VRAM pressure on a large card | `MRPG_VRAM_LIMIT_MIB=<MiB>` caps the budget the port sees |
 
 ## What the hot path must not do (Windows host)
 

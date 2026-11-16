@@ -9,7 +9,7 @@ delete the rows that do not apply. Never attach game files, keys, extracted data
 
 ## Change
 
-<!-- What the diff does and why this way. Name the switch (totk.ini setting or TOTK_* variable) that turns it off. -->
+<!-- What the diff does and why this way. Name the switch (mrpg.ini setting or MRPG_* variable) that turns it off. -->
 
 ## Where it reproduces
 
@@ -24,7 +24,7 @@ delete the rows that do not apply. Never attach game files, keys, extracted data
 <!-- The rows of CONTRIBUTING.md "Checks by what you changed" that match the diff, each with its result. -->
 
 - [ ] `python tools/check_content.py --staged`
-- [ ] `totk.exe --selftest`
+- [ ] `mrpg.exe --selftest`
 
 ## Measurements
 

@@ -14,10 +14,10 @@
 //   A chunked replay (vk_exec.c) records the ops out of order: its scan drops at the position of the op
 //   (vk_usnap_drop_at, scan_writes for the shaders' stores), and a chunk finds a copy only at a position before that.
 // - The arena goes back to a free list once the submission's fence is done (completion thread).
-// The design follows MacNativeGames' TOTK_UBO_SNAPSHOT (games/totk/third_party/d2r_gfx/gfx/nvn/nvn_mtl.m usnap_take,
+// The design follows MacNativeGames' MRPG_UBO_SNAPSHOT (games/totk/third_party/d2r_gfx/gfx/nvn/nvn_mtl.m usnap_take,
 // usnap_drop; MIT, Copyright (c) 2026 jhaizhou); the code is ours.
 // The copy is taken where vk_exec_record starts: at the submit call when the replay runs on the submitting thread, later
-// with TOTK_REPLAY_ASYNC; a chunked replay takes it on a recording thread while its scan runs. TOTK_UBO_SNAPSHOT=0 binds live memory as before; =ab alternates (TOTK_AB).
+// with MRPG_REPLAY_ASYNC; a chunked replay takes it on a recording thread while its scan runs. MRPG_UBO_SNAPSHOT=0 binds live memory as before; =ab alternates (MRPG_AB).
 #include <stdlib.h>
 #include <string.h>
 

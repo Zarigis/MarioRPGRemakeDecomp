@@ -6,11 +6,11 @@ recomp/gen.py, tools/build_game.py, tools/make_romfs_patches.py and tools/prepar
 <temp>/logs/<step>-<tool>.log and is read for progress. No Win32 call here: the host check is a small C program built
 with the bundled clang (hostcheck.c).
 
-Install folder: exefs/, romfs/ (romfs.bin, index.json), profile/, shared-fonts/ (Chinese and Korean text), totk.exe
+Install folder: exefs/, romfs/ (romfs.bin, index.json), profile/, shared-fonts/ (Chinese and Korean text), mrpg.exe
 and its DLLs, nvngx_dlss.dll (with --dlss), romfs-index.bin, romfs-patches/, romfs-patches-xbox/,
 romfs-patches-xbox-label/, romfs-patches-pc/, romfs-patches-<style>-<w>x<h>/ (each of the three for each shaped size),
-totk_xlate.exe, the
-shader state of totk.exe --prepare-shaders, totk.ini, totk-install.json.
+mrpg_xlate.exe, the
+shader state of mrpg.exe --prepare-shaders, mrpg.ini, mrpg-install.json.
 Temp folder (<temp>/<dest name>-<hash>): check/ (ExeFS of both inputs, the host check), unpacked/ (the NSP of an NSZ
 or XCZ input until the extraction is done), gen/ (C), build/ (objects), logs/. The cleanup keeps gen/, build/ and
 logs/: the next run lifts into the same gen/, where recomp/gen.py rewrites only the chunks whose C changed, and Ninja
@@ -19,7 +19,7 @@ it touches, not a full compile.
 
 Install folder build-cache/: cheats.status (tools/cheats.py), exefs.status and exefs.data (tools/exefs_patches.py) and
 rebuild.txt, the command that starts this setup in its rebuild mode on the install folder (installer/gui.py --rebuild),
-one argument per line; totk.exe runs it at start when an enabled mod has code cheats the build lacks
+one argument per line; mrpg.exe runs it at start when an enabled mod has code cheats the build lacks
 (runtime/cheats.c).
 """
 import hashlib
@@ -48,7 +48,7 @@ from extract_exefs import (common_tickets, container_entries, load_keys, nca_ctr
                            program_nca)
 
 GiB = 1 << 30
-DEST_EXTRA = 4 * GiB      # beside the RomFS: shader and pipeline caches (about 2 GB), exefs, totk.exe, seed files
+DEST_EXTRA = 4 * GiB      # beside the RomFS: shader and pipeline caches (about 2 GB), exefs, mrpg.exe, seed files
 TEMP_NEED = 3 * GiB       # generated C (about 0.9 GB) and objects
 HOSTCHECK = Path(__file__).resolve().parent / 'hostcheck.c'
 STAMP = '.install-key'
@@ -384,7 +384,7 @@ class Check(Step):
                     raise InstallError('check.keys_no_header_key')
         if (sys.platform == 'linux' and ctx.will_run('prepare')
                 and not (os.environ.get('DISPLAY') or os.environ.get('WAYLAND_DISPLAY'))):
-            # totk --prepare-shaders opens a window and needs a present-capable queue family; without a display it
+            # mrpg --prepare-shaders opens a window and needs a present-capable queue family; without a display it
             # fails after lift and compile (~15 min), so stop here
             raise InstallError('check.no_display')
         ctx.lang = lang
@@ -564,7 +564,7 @@ class Check(Step):
                 reason = base_misuse(records)
                 if reason:
                     raise InstallError(reason) from None
-            raise InstallError('check.update_not_totk' if is_update else 'check.base_not_totk', detail=str(e)) from None
+            raise InstallError('check.update_not_mrpg' if is_update else 'check.base_not_mrpg', detail=str(e)) from None
         try:
             nca_ctr_key(header, keys, tickets)
         except ValueError as e:
@@ -959,7 +959,7 @@ NINJA_LINE = re.compile(r'^\[(\d+)/(\d+)\] ')
 
 
 def runtime_key(ctx):
-    """Fingerprint of what totk.exe is built from besides the lifted code: the runtime, the toolchain and the build
+    """Fingerprint of what mrpg.exe is built from besides the lifted code: the runtime, the toolchain and the build
     tools. Shader preparation depends on these, not on the code cheats a lift adds."""
     layout, cpu = ctx.layout, getattr(ctx, 'cpu', 'v3')
     clang = subprocess.run([str(layout.clang), '--version'], capture_output=True, text=True).stdout
@@ -976,7 +976,7 @@ class Compile(Step):
                            ctx.layout.pgo(game_version(ctx)) or 'no profile')
 
     def current(self, ctx, record):
-        exe = ctx.dest / ('totk' + EXE)
+        exe = ctx.dest / ('mrpg' + EXE)
         if not exe.is_file() or not (ctx.dest / 'romfs-index.bin').is_file():
             return False
         if not all((ctx.dest / d.name).is_file() for d in ctx.layout.dlls):
@@ -1008,7 +1008,7 @@ class Compile(Step):
             '--version', version_tag(game_version(ctx)), '--expected', layout.expected(game_version(ctx)),
             '--exefs', dest / 'exefs', '--romfs', dest / 'romfs',
             '--profile', dest / 'profile'], parse)
-        exe = build / ('totk' + EXE)
+        exe = build / ('mrpg' + EXE)
         if code or not exe.is_file():
             raise InstallError('compile.failed', code=code, log=str(log))
         try:
@@ -1062,7 +1062,7 @@ class Prepare(Step):
             # Another translator: its cache keys differ, so the old translations would only take space.
             for name in ('shader-cache', 'shader-prepared.bin'):
                 remove(dest / name)
-        # totk.exe starts totk_xlate.exe as a child while it prepares shaders; a preparation that was stopped from
+        # mrpg.exe starts mrpg_xlate.exe as a child while it prepares shaders; a preparation that was stopped from
         # outside leaves that child holding this file, and Windows then refuses to replace it (issue #174).
         try:
             replace_file(layout.xlate, xlate)
@@ -1159,7 +1159,7 @@ class Prepare(Step):
         if skipped[0]:
             rep.warning('warn.shaders_skipped', count=skipped[0], log=str(log))
 
-        # One shader-cache.pack instead of four files per shader (~117,000): totk.exe reads the pack first.
+        # One shader-cache.pack instead of four files per shader (~117,000): mrpg.exe reads the pack first.
         rep.progress('prepare', 'pack', force=True)
         code, log = run_tool(ctx, 'prepare', layout.tools / 'pack_shader_cache.py', [dest / 'shader-cache'])
         if code:
@@ -1169,7 +1169,7 @@ class Prepare(Step):
 
 # ---- 7. NVIDIA DLSS
 
-# NVIDIA's DLSS library, which NGX loads from the folder of totk.exe (runtime/vk_dlaa.c). The setup does not ship it:
+# NVIDIA's DLSS library, which NGX loads from the folder of mrpg.exe (runtime/vk_dlaa.c). The setup does not ship it:
 # with --dlss it downloads NVIDIA's own copy from the DLSS SDK repository (NVIDIA RTX SDK license) at a pinned tag and
 # checks its hash. The game runs without it; dlaa and the DLSS modes then do nothing.
 DLSS_DLL = 'nvngx_dlss.dll'
@@ -1186,7 +1186,7 @@ def nvidia_rtx(host):
 
 
 class Dlss(Step):
-    """With --dlss on Windows and an NVIDIA RTX GPU: nvngx_dlss.dll next to totk.exe. A DLSS library the player put
+    """With --dlss on Windows and an NVIDIA RTX GPU: nvngx_dlss.dll next to mrpg.exe. A DLSS library the player put
     there (another version) is kept. A failed download warns and is tried again on the next run; the game runs
     without it."""
 
@@ -1269,7 +1269,7 @@ class Cleanup(Step):
 
 # Puts the release folder (the argument after -c) on sys.path and runs installer.gui with the rest. `-m installer.gui`
 # finds the package only through the release Python's ._pth: the Linux release's Python and the dev-mode embeddable one
-# lack that entry, and totk.exe starts the command in the install folder.
+# lack that entry, and mrpg.exe starts the command in the install folder.
 REBUILD_BOOT = ('import runpy, sys; sys.path.insert(0, sys.argv.pop(1)); '
                 "runpy.run_module('installer.gui', run_name='__main__', alter_sys=True)")
 
@@ -1286,7 +1286,7 @@ def rebuild_command(ctx):
 
 
 def write_rebuild_command(ctx):
-    """build-cache/rebuild.txt in the install folder: rebuild_command, one argument per line, for totk.exe."""
+    """build-cache/rebuild.txt in the install folder: rebuild_command, one argument per line, for mrpg.exe."""
     cache = ctx.dest / 'build-cache'
     cache.mkdir(exist_ok=True)
     tmp = cache / 'rebuild.txt.tmp'

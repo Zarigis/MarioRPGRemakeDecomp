@@ -7,7 +7,7 @@
 // memory back (rt_oom_request: released textures and headroom blocks, at its next submit, where its locks are free) and
 // retry for up to OOM_WAIT_MS before they end the game.
 //
-// TOTK_TEST_OOM=<site>:<n>[,<site>:<n>...] (sites commit, staging, image, chunk) fails the first n attempts at a site, so
+// MRPG_TEST_OOM=<site>:<n>[,<site>:<n>...] (sites commit, staging, image, chunk) fails the first n attempts at a site, so
 // the wait can be tested without running out of memory; the probes arm it with rt_oom_force.
 #include <stdlib.h>
 #include <string.h>
@@ -30,7 +30,7 @@ static PlatOnce force_once = PLAT_ONCE_INIT;
 
 static void force_parse(void *arg) {
     (void)arg;
-    const char *s = cfg_get("TOTK_TEST_OOM");
+    const char *s = cfg_get("MRPG_TEST_OOM");
     while (s && *s) {
         const char *colon = strchr(s, ':'), *end = strchr(s, ',');
         if (!end) end = s + strlen(s);
@@ -39,7 +39,7 @@ static void force_parse(void *arg) {
                 if ((size_t)(colon - s) == strlen(site_name[i]) && !strncmp(s, site_name[i], (size_t)(colon - s))) {
                     int n = atoi(colon + 1);
                     __atomic_store_n(&force_left[i], n > 0 ? n : 0, __ATOMIC_RELAXED);
-                    rt_log("oom: TOTK_TEST_OOM fails the first %d %s attempts", n, site_name[i]);
+                    rt_log("oom: MRPG_TEST_OOM fails the first %d %s attempts", n, site_name[i]);
                 }
         }
         s = *end ? end + 1 : end;

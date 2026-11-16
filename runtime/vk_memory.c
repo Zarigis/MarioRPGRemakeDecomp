@@ -50,7 +50,7 @@ typedef struct PoolRec {
     VPage *pt;                         // POOL_VIRT: size / 64 KiB entries
     uint64_t npages;
     volatile int32_t used;                // resolved at least once: the GPU may still read it at finalize
-    // TOTK_TRACE=perf dirty census (vk_mem_dirty_submit), replay thread under the submit lock only:
+    // MRPG_TRACE=perf dirty census (vk_mem_dirty_submit), replay thread under the submit lock only:
     uint32_t bound_sub;                // last submit that bound it as a buffer (dirty_sub), 0 never
     uint32_t synced_gen;               // page generation its lazy-mirror count covers; DIRTY_UNSYNCED until scanned
     uint8_t bufbound;                  // ever bound as a vertex, index, uniform, storage or indirect buffer
@@ -73,7 +73,7 @@ typedef struct PoolRec {
     volatile uint8_t stouched;         // on the touched list: the GPU may use it in the submission being recorded
     uint64_t suse;                     // shadow_lock: the newest timeline value whose submission reads the shadow
     uint64_t sdefer;                   // shadow_lock: the newest value whose prologue carries a deferred copy into the
-                                       // shadow (TOTK_SHADOW_DEFER); 0 never
+                                       // shadow (MRPG_SHADOW_DEFER); 0 never
 } PoolRec;
 
 static void mirror_forget(PoolRec *r);   // pool_lock exclusive: off the mirrored list
@@ -222,7 +222,7 @@ static int alloc_physical(VkCtx *c, PoolRec *r) {
 int vk_fix_zero(void) {
     static int on = -1;
     if (on < 0) {
-        on = cfg_bool("TOTK_FIX_ZERO");
+        on = cfg_bool("MRPG_FIX_ZERO");
     }
     return on;
 }
@@ -343,7 +343,7 @@ void vk_pool_fini(pool_t *p) {
     // through a texture upload or a released cache entry (vk_texture.c slot_resolve), a physical pool's memory under
     // the images vk_texture_range_gone just deferred to that submission. The game frees a pool only once its own GPU
     // work is done, so only the port's work can name it. Freed here, the submission ran with freed memory. A shadow
-    // with a deferred copy (TOTK_SHADOW_DEFER) is named by the queue (dq) until the prologue of that submission.
+    // with a deferred copy (MRPG_SHADOW_DEFER) is named by the queue (dq) until the prologue of that submission.
     pool_retiring(r);
     vk_completion_add(retire_value(), pool_retire, r);
 }
@@ -377,7 +377,7 @@ int vk_pool_map_virtual(pool_t *v, int n, const void *requests) {
 // Per-thread copies of resolved import and physical pools that overlap no other index entry (so pidx_find picks them for
 // any range inside), valid while pool_gen is unchanged: the replay resolves a few dozen pools thousands of times per
 // frame (16 vertex streams and every buffer binding of each draw). Direct-mapped by the 4 KiB page of the address, so
-// a hit is one compare however many pools a frame touches. TOTK_RESOLVE_CHECK=1 compares every hit with the locked
+// a hit is one compare however many pools a frame touches. MRPG_RESOLVE_CHECK=1 compares every hit with the locked
 // lookup and stops on a difference.
 static int rec_class(const PoolRec *r) {
     if (r->kind != POOL_IMPORT) return VK_MCLS_DEVICE;
@@ -394,7 +394,7 @@ static ResolveHit *rhit_slot(uint64_t addr) { return &rhit[(addr >> 12 ^ addr >>
 static int resolve_check_on(void) {
     static int on = -1;
     if (on < 0) {
-        const char *e = cfg_get("TOTK_RESOLVE_CHECK");
+        const char *e = cfg_get("MRPG_RESOLVE_CHECK");
         on = e && *e && strcmp(e, "0");
     }
     return on;
@@ -526,7 +526,7 @@ static void flag_names(uint32_t f, char *buf, size_t n) {
 
 // One line per (kind, flags) group of the live pools, then the bytes the replay bound or copied per frame by pool
 // class since the previous census (the first one: since frame 1200). Logged at frame 1800 (in the world from the
-// run-game saves), at frame 600, and with TOTK_TRACE=perf every 1800 frames.
+// run-game saves), at frame 600, and with MRPG_TRACE=perf every 1800 frames.
 static void dirty_frame(uint64_t frame);
 
 static void mirror_log(uint64_t frame);
@@ -613,14 +613,14 @@ void vk_mem_census(uint64_t frame) {
     window_start = frame;
 }
 
-// TOTK_VRAM_LIMIT_MIB: pretend the device-local budget is at most this many MiB, so the paths that react to the budget
+// MRPG_VRAM_LIMIT_MIB: pretend the device-local budget is at most this many MiB, so the paths that react to the budget
 // can be driven on a card larger than the one a report came from. The driver knows nothing of it.
 static uint64_t vram_limit(void) {
     static int64_t limit = -1;
     if (limit < 0) {
-        const char *s = cfg_get("TOTK_VRAM_LIMIT_MIB");
+        const char *s = cfg_get("MRPG_VRAM_LIMIT_MIB");
         limit = s && *s ? (int64_t)strtoull(s, NULL, 10) << 20 : 0;
-        if (limit) rt_log("mem: device-local budget limited to %lld MiB (TOTK_VRAM_LIMIT_MIB)", (long long)(limit >> 20));
+        if (limit) rt_log("mem: device-local budget limited to %lld MiB (MRPG_VRAM_LIMIT_MIB)", (long long)(limit >> 20));
     }
     return (uint64_t)limit;
 }
@@ -682,7 +682,7 @@ void vk_mem_host_probe(void) {
     int64_t d = (int64_t)(p1 - p0);
     host_backed = d >= (int64_t)HB_PROBE_SIZE / 2 ? HB_COMMIT : HB_NONE;
     rt_log("mem: device memory against system memory: %s (a %llu MiB device-local allocation took %.0f MiB of process "
-           "commit), reserve %llu MiB (TOTK_MEM_RESERVE_MIB)", host_backed == HB_COMMIT ? "commit" : "not counted",
+           "commit), reserve %llu MiB (MRPG_MEM_RESERVE_MIB)", host_backed == HB_COMMIT ? "commit" : "not counted",
            (unsigned long long)(HB_PROBE_SIZE >> 20), d / 1048576.0, (unsigned long long)(room_reserve >> 20));
 }
 
@@ -927,7 +927,7 @@ void vk_mem_snap_stats(uint64_t *checks, uint64_t *calls, uint64_t *untracked) {
     *untracked = __atomic_exchange_n(&n_snap_untracked, 0, __ATOMIC_RELAXED);
 }
 
-// ---------------------------------------------------------------- dirty census (TOTK_TRACE=perf)
+// ---------------------------------------------------------------- dirty census (MRPG_TRACE=perf)
 // What a device-local mirror of the buffer-bound pools would upload. The replay notes every
 // imported pool it binds as a vertex, index, uniform, storage or indirect buffer (vk_mem_bound_note). At the start of
 // each submit one write-watch query per run of such pools stamps the pages written since with a new generation, in the
@@ -991,7 +991,7 @@ static int query_stamp(uint64_t lo, uint64_t hi, uint32_t g) {
 // - GPU -> guest: the replay notes each GPU write into CPU-visible memory at record time (vk_mem_gpu_pending) and
 //   reports it at the fence (vk_gpu_written), which copies those bytes back into guest memory. Until then the CPU
 //   copies skip them: a page the CPU and the GPU both write keeps the GPU's bytes.
-// TOTK_SHADOW=1/0 forces the mode on or off; the default is on for Linux and Wine.
+// MRPG_SHADOW=1/0 forces the mode on or off; the default is on for Linux and Wine.
 typedef struct { uint64_t lo, hi; } SRange;
 static PlatMutex shadow_lock = PLAT_MUTEX_INIT;   // after pool_lock; before gen_lock
 static PoolRec **stouch;                          // shadow_lock: pools resolved since the last sync
@@ -1001,7 +1001,7 @@ static int nspend, cspend;
 static int64_t s_live_n, s_live_bytes;            // shadow_lock
 static uint64_t s_syncs, s_copied, s_queries, s_untracked, s_wb_bytes, s_ticks;   // shadow_lock: since the last log
 
-// TOTK_SHADOW_DEFER (with TOTK_SYNC_AHEAD): a shadow update the CPU must not write yet is queued instead and executed
+// MRPG_SHADOW_DEFER (with MRPG_SYNC_AHEAD): a shadow update the CPU must not write yet is queued instead and executed
 // by the GPU, in queue order, at the start of the prologue of the part submitted next (vk_mem_shadow_prologue).
 // defer_on: the switch is on. sdefer_now: the pool being synced is deferred, and sdefer_fence the value its copies
 // belong to. Replay thread (sub_lock): the queue.
@@ -1082,7 +1082,7 @@ static void shadow_copy(PoolRec *r, uint64_t a, uint64_t b, int i) {
     s_copied += b - a;
 }
 
-// TOTK_SHADOW_SNAP (default 1 on a native host, 0 under Wine, where it has not been measured): a pool's sync takes its written pages from the per-submission write-watch snapshots
+// MRPG_SHADOW_SNAP (default 1 on a native host, 0 under Wine, where it has not been measured): a pool's sync takes its written pages from the per-submission write-watch snapshots
 // (snap_regions, shared with the texture checks): each 2 MiB region is queried at most once per guest submission, however
 // many pools share it and however many parts of the submission touch them. The GPU then reads a pool as of the first
 // part that syncs it, nearer the submit call, the moment the game means (vk_usnap.c). 0 queries each pool at every
@@ -1097,7 +1097,7 @@ static void shadow_sync_pool(PoolRec *r) {
     uint64_t lo = r->import_lo, hi = r->import_hi;
     if (shadow_snap < 0) {
         shadow_snap = rt_knob("SHADOW_SNAP", plat_is_wine() ? "0" : "1");
-        rt_log("mem: shadow sync: %s (TOTK_SHADOW_SNAP%s)",
+        rt_log("mem: shadow sync: %s (MRPG_SHADOW_SNAP%s)",
                shadow_snap ? "per-submission region snapshots" : "a query per pool at every part",
                plat_is_wine() ? "; off by default under Wine" : "");
     }
@@ -1160,12 +1160,12 @@ static void shadow_copy_newer(PoolRec *r, uint32_t since) {
     if (run) shadow_copy(r, run, hi, 0);
 }
 
-// TOTK_SYNC_AHEAD (nvn_api_core.c): the game may have been told a value is done (at most the guard) that the GPU still
+// MRPG_SYNC_AHEAD (nvn_api_core.c): the game may have been told a value is done (at most the guard) that the GPU still
 // runs, and then write memory that value reads. The CPU copies its writes into a shadow, so while the guard is not done
 // a shadow with any reader in flight must not be written by the CPU: that reader may be the guarded value or an older
 // one (the parts of one submission share a value), and a pool records only its newest reader. A shadow with no reader
 // in flight is copied at once.
-// With TOTK_SHADOW_DEFER the update of such a shadow is queued instead (this function). Without it the replay thread
+// With MRPG_SHADOW_DEFER the update of such a shadow is queued instead (this function). Without it the replay thread
 // waits (shadow_wait_guard).
 
 // shadow_lock held: whether a shadow this sync is about to update has a reader in flight.
@@ -1175,7 +1175,7 @@ static int shadow_reader_busy(uint64_t done) {
     return 0;
 }
 
-// shadow_lock held (released while waiting), no TOTK_SHADOW_DEFER: waits until the guard is done when a shadow to
+// shadow_lock held (released while waiting), no MRPG_SHADOW_DEFER: waits until the guard is done when a shadow to
 // update has a reader in flight, then re-reads the guard under the lock, since the game may have raised it meanwhile. The wait
 // runs without shadow_lock: the completion thread needs it for the fence callbacks (vk_gpu_written). *g and *done are
 // current on return.
@@ -1193,7 +1193,7 @@ static void shadow_wait_guard(uint64_t fence, uint64_t *g, uint64_t *done) {
     }
 }
 
-// shadow_lock held, TOTK_SHADOW_DEFER: the pool's update goes through the queue when a reader of it is in flight while
+// shadow_lock held, MRPG_SHADOW_DEFER: the pool's update goes through the queue when a reader of it is in flight while
 // the guard is (see above), or when an earlier deferred copy into it has not executed yet: a direct memcpy must never
 // land before it, or the queued copy would overwrite newer bytes with older ones.
 static int shadow_defers(const PoolRec *r, uint64_t g, uint64_t done) {
@@ -1275,7 +1275,7 @@ static void shadow_log(uint64_t frame) {
            (unsigned long long)frame, (long long)s_live_n, s_live_bytes / 1048576.0, (unsigned long long)s_syncs,
            (unsigned long long)s_queries, s_copied / 1048576.0, (unsigned long long)s_untracked, s_wb_bytes / 1048576.0,
            qpc_ms(s_ticks), nspend);
-    if (defer_on || s_waits)   // only with TOTK_SYNC_AHEAD: the shadow log of everyone else stays as it was
+    if (defer_on || s_waits)   // only with MRPG_SYNC_AHEAD: the shadow log of everyone else stays as it was
         rt_log("mem: shadow deferred (%s): %llu pools, %.1f MiB in %llu copies; replay waited for a reader %llu times, "
                "%.2f ms", defer_on ? "on" : "off", (unsigned long long)s_defer_pools, s_defer_bytes / 1048576.0,
                (unsigned long long)s_defer_copies, (unsigned long long)s_waits, qpc_ms(s_wait_ticks));
@@ -1409,7 +1409,7 @@ static void dirty_frame(uint64_t frame) {
 // ---------------------------------------------------------------- VRAM mirror of buffer-bound pools
 // An imported pool keeps vertices, indices, constants
 // and storage buffers in system memory, so a discrete GPU reads them over PCIe on every draw (GTX 1050 Ti and RTX
-// 3090 Ti: about 110 ms of GPU time per frame in the field). In mirror mode (device class discrete, TOTK_MEMORY) an
+// 3090 Ti: about 110 ms of GPU time per frame in the field). In mirror mode (device class discrete, MRPG_MEMORY) an
 // imported pool gets a device-local buffer over its imported range the first time the replay uses it as a vertex,
 // index, uniform, storage or indirect buffer (vk_mem_use). From then on those bindings, and the buffer copies, fills
 // and uniform updates that touch the pool (vk_mem_pick), use the mirror at the same offsets. Guest memory stays what
@@ -1419,14 +1419,14 @@ static void dirty_frame(uint64_t frame) {
 //   consumer, the shared page generations) and every page stamped after the mirror's mgen goes into a copy; so do the
 //   nvnMemoryPoolFlushMappedRange ranges, each on its own: one span from the lowest to the highest flush of a 252 MiB
 //   pool copied up to the whole pool for a few MiB flushed, 30-50 ms of GPU time over PCIe 3.0 x8 in crowded towns
-//   (TOTK_FLUSH_SPAN=1 restores it). Writes between the ranges need no copy: the write watch sees them. The first use
+//   (MRPG_FLUSH_SPAN=1 restores it). Writes between the ranges need no copy: the write watch sees them. The first use
 //   copies the whole range. The copies run in a prologue command
 //   buffer that vk_sync.c submits right before the part that accessed the mirror first, between full barriers.
 //   vk_mem_mirror_begin snaps the regions of the pools the previous submission accessed in a few merged queries.
 // - GPU -> guest: what the replay writes into a mirror (storage buffers its shaders write, buffer copies, fills,
 //   uniform updates, texture-to-buffer copies: vk_mem_gpu_wrote) goes back into the imported buffer at the end of the
 //   submission, exact byte ranges, before the fence signals (vk_mem_mirror_end).
-// - TOTK_MEMORY=verify: every submission also copies up to VERIFY_BYTES of mirror pages, round robin, into host memory;
+// - MRPG_MEMORY=verify: every submission also copies up to VERIFY_BYTES of mirror pages, round robin, into host memory;
 //   at its fence the pages the CPU has not written since their sync are compared with guest memory.
 // A pool stays imported when its mirror would not fit the VRAM budget, its range is not write-watched, it overlaps
 // another pool or the allocation fails.
@@ -1448,7 +1448,7 @@ static int npend, cpend, nwbl, cwbl;
 static VkBufferCopy *mregions;         // replay: vkCmdCopyBuffer regions
 static int cregions;
 static PlatMutex flush_lock = PLAT_MUTEX_INIT;
-static int flush_cap = FLUSH_RANGES;   // ranges a pool keeps; 1 with TOTK_FLUSH_SPAN=1
+static int flush_cap = FLUSH_RANGES;   // ranges a pool keeps; 1 with MRPG_FLUSH_SPAN=1
 // The first uses of a submission's mirrors, the copies they queue, the GPU writes noted and their snapshots (pend, wbl, snl, mrep): threads
 // recording chunks of one submission take it. A mirror synced in this submission is read without it (vk_mem_use): its
 // acc_sub is stored last. Before pool_lock, gen_lock and flush_lock.
@@ -1467,39 +1467,39 @@ static volatile int64_t m_live_n, m_live_bytes, m_refused_n[MR_N], m_refused_byt
 static volatile int64_t m_flush_calls, m_flush_bytes, v_pages, v_skipped, v_mismatch;
 
 static void mirror_mode(int discrete) {
-    const char *e = cfg_value("TOTK_MEMORY");
+    const char *e = cfg_value("MRPG_MEMORY");
     int mode = discrete ? 1 : 0;   // 0 import, 1 mirror, 2 verify
     const char *why = discrete ? "auto, discrete gpu" : "auto, uma";
     if (strcmp(e, "auto")) {
-        if (!strcmp(e, "import")) mode = 0, why = "TOTK_MEMORY=import";
-        else if (!strcmp(e, "mirror")) mode = 1, why = "TOTK_MEMORY=mirror";
-        else if (!strcmp(e, "verify")) mode = 2, why = "TOTK_MEMORY=verify";
-        else rt_log("mem: TOTK_MEMORY=%s is not import, mirror, verify or auto: auto", e);
+        if (!strcmp(e, "import")) mode = 0, why = "MRPG_MEMORY=import";
+        else if (!strcmp(e, "mirror")) mode = 1, why = "MRPG_MEMORY=mirror";
+        else if (!strcmp(e, "verify")) mode = 2, why = "MRPG_MEMORY=verify";
+        else rt_log("mem: MRPG_MEMORY=%s is not import, mirror, verify or auto: auto", e);
     }
     vk_mirror_on = mode > 0;
     mirror_verify = mode == 2;
-    const char *g = cfg_get("TOTK_MIRROR_GAP");
+    const char *g = cfg_get("MRPG_MIRROR_GAP");
     mirror_gap = g && *g ? atoi(g) : 2;
     if (mirror_gap < 0) mirror_gap = 0;
     // Submissions a region stays unwritten before it is frozen. 60 rather than 300: in a fight 100 of the 257 MiB
     // queried a frame lay in regions idle for 30-299 submissions, and a thaw by a write costs about 60 us.
     if (rt_knob("FLUSH_SPAN", "0")) {
         flush_cap = 1;
-        rt_log("mem: a pool's flushes copy one span from the lowest to the highest (TOTK_FLUSH_SPAN=1)");
+        rt_log("mem: a pool's flushes copy one span from the lowest to the highest (MRPG_FLUSH_SPAN=1)");
     }
-    const char *fi = cfg_get("TOTK_FREEZE_IDLE");
+    const char *fi = cfg_get("MRPG_FREEZE_IDLE");
     freeze_idle = fi && *fi ? atoi(fi) : 60;
     if (freeze_idle < 0) freeze_idle = 0;
-    const char *sh = cfg_get("TOTK_SHADOW");
+    const char *sh = cfg_get("MRPG_SHADOW");
 #ifdef _WIN32
     shadow_on = sh && *sh ? strcmp(sh, "0") != 0 : plat_is_wine();
 #else
     shadow_on = !sh || !*sh || strcmp(sh, "0");
 #endif
-    defer_on = shadow_on && cfg_bool("TOTK_SYNC_AHEAD") && cfg_bool("TOTK_SHADOW_DEFER");
-    if (defer_on) rt_log("mem: TOTK_SHADOW_DEFER: shadow updates that wait for a reader are queued for the GPU instead");
+    defer_on = shadow_on && cfg_bool("MRPG_SYNC_AHEAD") && cfg_bool("MRPG_SHADOW_DEFER");
+    if (defer_on) rt_log("mem: MRPG_SHADOW_DEFER: shadow updates that wait for a reader are queued for the GPU instead");
     if (shadow_on) rt_log("mem: shadow storage: CPU-visible pools are host-visible copies of guest memory, not imports%s",
-                          sh && *sh ? " (TOTK_SHADOW)" : "");
+                          sh && *sh ? " (MRPG_SHADOW)" : "");
     rt_log("mem: mode %s (%s): %s", mode == 2 ? "verify" : mode ? "mirror" : "import", why,
            mode ? "pools used as buffers get a device-local mirror" : "every CPU-visible pool is imported host memory");
     // Import is the integrated-GPU mode. On a discrete card every draw reads the pools over PCIe (the comment above
@@ -1780,7 +1780,7 @@ int vk_mem_mirror_probe(uint64_t addr) {
 // - vk_mem_mirror_end: shaders/wb_merge.comp writes each 32-bit word that differs between the mirror and the snapshot
 //   into the pool's imported buffer (wb_merge_record), one dispatch per pool and group of ranges.
 // Words the GPU left unchanged keep the CPU's value; a word both changed takes the GPU's, as a plain copy would.
-// TOTK_WB_MERGE=0 restores the plain copies; so does a pipeline or allocation failure.
+// MRPG_WB_MERGE=0 restores the plain copies; so does a pipeline or allocation failure.
 #define SNAP_CHUNK (1u << 20)
 #define MERGE_SPAN (64ull << 20)   // the bytes of one pool a merge dispatch binds at most
 #define MERGE_WORDS (65535u * 64u) // the words one merge dispatch covers at most
@@ -1846,8 +1846,8 @@ fail:
 
 static int merging(void) {
     if (merge_on < 0) {
-        merge_on = cfg_bool("TOTK_WB_MERGE");
-        rt_log("mem: write-back merge %s (TOTK_WB_MERGE)", merge_on ? "on" : "off");
+        merge_on = cfg_bool("MRPG_WB_MERGE");
+        rt_log("mem: write-back merge %s (MRPG_WB_MERGE)", merge_on ? "on" : "off");
     }
     if (!merge_on) return 0;
     if (!WM.tried) merge_init(vk_ctx());
@@ -2074,7 +2074,7 @@ int vk_mem_flush_add_probe(void) {
     n = 0;
     n = flush_add(l, n, 0x10000, 0x11000, 1);
     n = flush_add(l, n, 0x40000, 0x41000, 1);
-    if (n != 1 || l[0].lo != 0x10000 || l[0].hi != 0x41000) return 5;                      // TOTK_FLUSH_SPAN=1
+    if (n != 1 || l[0].lo != 0x10000 || l[0].hi != 0x41000) return 5;                      // MRPG_FLUSH_SPAN=1
     return 0;
 }
 
@@ -2318,7 +2318,7 @@ int vk_mem_mirror_end(VkCommandBuffer cb, uint64_t fence) {
     return rec;
 }
 
-// One summary line: with TOTK_TRACE=perf every 60 frames, else at frames 600 and 1800.
+// One summary line: with MRPG_TRACE=perf every 60 frames, else at frames 600 and 1800.
 static void mirror_log(uint64_t frame) {
     static uint64_t last, ww_last;
     plat_mutex_lock(&gen_lock);
@@ -2371,7 +2371,7 @@ static void mirror_log(uint64_t frame) {
            a.flush_bytes / f / M, a.flush_calls / f, a.flush_sum / f / M);
 }
 
-// With TOTK_TRACE=perf every 600 frames: what holds device-local memory, to see what grows over a long session.
+// With MRPG_TRACE=perf every 600 frames: what holds device-local memory, to see what grows over a long session.
 // VMA's blocks and allocations on the device-local heaps, texture entries with their own memory, the VRAM mirrors and
 // the objects waiting for their last submission to retire.
 static void vram_log(uint64_t frame) {
@@ -2416,7 +2416,7 @@ void vk_mem_class_log(const VkPhysicalDeviceProperties *p, const VkPhysicalDevic
     else cls = "discrete", why = "device-local heap separate from host memory";
     int discrete = cls[0] == 'd';
     host_backed = !discrete ? HB_UMA : HB_PROBE;   // a discrete GPU is measured once the device exists
-    const char *rs = cfg_get("TOTK_MEM_RESERVE_MIB");
+    const char *rs = cfg_get("MRPG_MEM_RESERVE_MIB");
     room_reserve = (rs && *rs ? strtoull(rs, NULL, 10) : 1536) << 20;   // Windows, other programs, our own heap
     char line[2048];
     size_t k = (size_t)snprintf(line, sizeof line, "mem: class %s (%s; device type %d %s, %s)", cls, why, t, tn, p->deviceName);
@@ -2439,7 +2439,7 @@ void vk_mem_class_log(const VkPhysicalDeviceProperties *p, const VkPhysicalDevic
     rt_log("%s", line);
     if (host_backed == HB_UMA)
         rt_log("mem: device memory against system memory: commit and physical memory (uma), reserve %llu MiB "
-               "(TOTK_MEM_RESERVE_MIB)", (unsigned long long)(room_reserve >> 20));
+               "(MRPG_MEM_RESERVE_MIB)", (unsigned long long)(room_reserve >> 20));
     mirror_mode(discrete);
 }
 
@@ -2739,7 +2739,7 @@ VkResult vk_scratch_buffer(VkDeviceSize size, VkBuffer *buf, VmaAllocation *allo
 
 VkDeviceSize vk_upload_held(void) { return open_active ? open_b.held : 0; }
 
-// Own memory of the game's textures (vk_texture.c create_tex): a pool of its own with blocks of TOTK_TEX_BLOCK_MIB
+// Own memory of the game's textures (vk_texture.c create_tex): a pool of its own with blocks of MRPG_TEX_BLOCK_MIB
 // (default 64; 0 puts textures back in the default pools). In the default pools textures shared 256 MiB blocks with the
 // mirrors and other buffers, and a block went back to the driver only once all of them were gone: on the RX 9070,
 // after 4.5 minutes of roaming the field, 3 of the 9 device-local blocks were 13-27% full, held by 87-223 small
@@ -2761,7 +2761,7 @@ static void tex_pool_init(VkCtx *c, const VkImageCreateInfo *ci) {
     plat_once(&cmd_once, cmd_init, NULL);
     plat_rmutex_lock(&cmd_lock);
     if (!tex_pool_tried) {
-        tex_block = (VkDeviceSize)cfg_int("TOTK_TEX_BLOCK_MIB") << 20;   // schema default 64
+        tex_block = (VkDeviceSize)cfg_int("MRPG_TEX_BLOCK_MIB") << 20;   // schema default 64
         VmaAllocationCreateInfo aci = {.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE};
         VmaPoolCreateInfo pi = {.blockSize = tex_block};
         if (tex_block && vmaFindMemoryTypeIndexForImageInfo(c->vma, ci, &aci, &tex_type) == VK_SUCCESS) {
@@ -2771,10 +2771,10 @@ static void tex_pool_init(VkCtx *c, const VkImageCreateInfo *ci) {
         if (tex_pool) {
             vk_headroom_pool(tex_pool, tex_type, tex_block);
             rt_log("vk: texture pool: blocks of %llu MiB in memory type %u; images of %llu MiB or more get memory of "
-                   "their own (TOTK_TEX_BLOCK_MIB)", (unsigned long long)(tex_block >> 20), tex_type,
+                   "their own (MRPG_TEX_BLOCK_MIB)", (unsigned long long)(tex_block >> 20), tex_type,
                    (unsigned long long)(tex_block >> 22));
         } else {
-            rt_log("vk: texture pool %s: textures go to the default pools (TOTK_TEX_BLOCK_MIB)",
+            rt_log("vk: texture pool %s: textures go to the default pools (MRPG_TEX_BLOCK_MIB)",
                    tex_block ? "unavailable" : "off");
         }
         __atomic_store_n(&tex_pool_tried, 1, __ATOMIC_RELEASE);

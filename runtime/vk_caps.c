@@ -1,15 +1,15 @@
 // What the runtime branches on, logged once at device creation, and the fallbacks for GPUs other than the RX 9070.
 //
 // Fallbacks (each also forced on any GPU by an environment switch, to test it where the GPU does not need it):
-//   - no shaderFloat64 (TOTK_VK_NO_FLOAT64=1 clears the feature before vkCreateDevice): the translator lowers FP64 to
+//   - no shaderFloat64 (MRPG_VK_NO_FLOAT64=1 clears the feature before vkCreateDevice): the translator lowers FP64 to
 //     FP32 ("softfloat64"), so no shader declares Float64.
-//   - minStorageBufferOffsetAlignment above 4 (TOTK_VK_SSBO_ALIGN=<power of two> raises it): the translator computes
+//   - minStorageBufferOffsetAlignment above 4 (MRPG_VK_SSBO_ALIGN=<power of two> raises it): the translator computes
 //     storage offsets from the guest address rounded down to that alignment (Ryujinx's unaligned storage path), and
 //     vk_exec_draw.c ssbo_info binds the rounded-down address, so shader writes reach guest memory instead of a copy.
-//   - no graphics pipeline library with fast linking (TOTK_GPL=0 forces it): vk_caps.gpl = 0, the extension stays disabled, and pipelines are built whole.
-//   - no 32-lane pin (no subgroupSizeControl, 32 outside min..max, or TOTK_VK_SUBGROUP_PIN=0): stages run at the
+//   - no graphics pipeline library with fast linking (MRPG_GPL=0 forces it): vk_caps.gpl = 0, the extension stays disabled, and pipelines are built whole.
+//   - no 32-lane pin (no subgroupSizeControl, 32 outside min..max, or MRPG_VK_SUBGROUP_PIN=0): stages run at the
 //     device's subgroupSize (SPIR-V 1.3 without a required size) and the translator is told that size.
-//     TOTK_VK_SUBGROUP=<n> pins n instead of 32 where the driver allows it.
+//     MRPG_VK_SUBGROUP=<n> pins n instead of 32 where the driver allows it.
 // The defaults (Float64, no storage rounding, 32 everywhere) leave the shader cache keys as they were (gfx_shader.c).
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,7 +31,7 @@ static uint32_t env_u32(const char *name, uint32_t def) {
 
 void vk_caps_features(VkPhysicalDeviceFeatures *f) {
     f64_supported = f->shaderFloat64;
-    if (env_u32("TOTK_VK_NO_FLOAT64", 0)) f->shaderFloat64 = VK_FALSE;
+    if (env_u32("MRPG_VK_NO_FLOAT64", 0)) f->shaderFloat64 = VK_FALSE;
     vk_caps.float64 = f->shaderFloat64;
 }
 
@@ -49,7 +49,7 @@ void vk_caps_driver(VkPhysicalDevice p) {
                              p2.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU;
 }
 
-// TOTK_GPL=0 turns graphics pipeline libraries off; they are on wherever the driver has fast linking. AMD's RDNA 1/2
+// MRPG_GPL=0 turns graphics pipeline libraries off; they are on wherever the driver has fast linking. AMD's RDNA 1/2
 // driver branch had them off for a while: its device losses at boot (issue #5) came with a cold pipeline cache, but
 // their cause was GPU writes past 3D BC images (vk_exec.c, "3D BC render targets"). With that fixed, the RDNA 1/2
 // driver boots with GPL from a cold cache and fast-links without a failure, while with GPL off every new pipeline is
@@ -59,7 +59,7 @@ int vk_caps_gpl(const VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT *f,
                 const VkPhysicalDeviceGraphicsPipelineLibraryPropertiesEXT *p) {
     gpl_lib = f->graphicsPipelineLibrary;
     gpl_fast = p->graphicsPipelineLibraryFastLinking;
-    const char *e = cfg_get("TOTK_GPL");
+    const char *e = cfg_get("MRPG_GPL");
     vk_caps.gpl = gpl_lib && gpl_fast && !(e && !strcmp(e, "0"));
     return vk_caps.gpl;
 }
@@ -101,12 +101,12 @@ void vk_caps_init(VkCtx *c) {
     VkExtensionProperties *ep = calloc(ne ? ne : 1, sizeof *ep);
     vkEnumerateDeviceExtensionProperties(c->phys, NULL, &ne, ep);
 
-    uint32_t real_align = (uint32_t)l->minStorageBufferOffsetAlignment, a = env_u32("TOTK_VK_SSBO_ALIGN", 0);
+    uint32_t real_align = (uint32_t)l->minStorageBufferOffsetAlignment, a = env_u32("MRPG_VK_SSBO_ALIGN", 0);
     if (a && !(a & (a - 1)) && a > real_align) l->minStorageBufferOffsetAlignment = a;
     vk_caps.sbuf_align = l->minStorageBufferOffsetAlignment > 4 ? (uint32_t)l->minStorageBufferOffsetAlignment : 0;
 
-    uint32_t want = env_u32("TOTK_VK_SUBGROUP", 32);
-    int pin = f13.subgroupSizeControl && cfg_bool("TOTK_VK_SUBGROUP_PIN") && p13.minSubgroupSize <= want &&
+    uint32_t want = env_u32("MRPG_VK_SUBGROUP", 32);
+    int pin = f13.subgroupSizeControl && cfg_bool("MRPG_VK_SUBGROUP_PIN") && p13.minSubgroupSize <= want &&
               want <= p13.maxSubgroupSize;
     vk_caps.sg_size = want;
     vk_caps.sg_pin_stages = pin ? p13.requiredSubgroupSizeStages : 0;
@@ -116,13 +116,13 @@ void vk_caps_init(VkCtx *c) {
     // Gathers (TLD4) pick their four texels with Maxwell's rounding; AMD and Intel round a coordinate that sits between
     // two texels the other way, which draws dark lines along object edges in shadow-map filtering (docs/maxwell.md 2.10;
     // BotW and TotK on AMD). The translator biases gather coordinates by the host's sub-texel precision; NVIDIA rounds
-    // as Maxwell does. TOTK_GATHER_BIAS=<bits> forces it (0: off).
-    uint32_t gather = env_u32("TOTK_GATHER_BIAS", c->props.vendorID == 0x10de ? 0 : l->subTexelPrecisionBits);
+    // as Maxwell does. MRPG_GATHER_BIAS=<bits> forces it (0: off).
+    uint32_t gather = env_u32("MRPG_GATHER_BIAS", c->props.vendorID == 0x10de ? 0 : l->subTexelPrecisionBits);
     // A register read before any write is an undefined load in SPIR-V, and Mesa folds undefined values freely, so on
-    // Mesa function-local variables start at 0 (docs/maxwell.md 3.12). TOTK_ZERO_LOCALS=1 forces it, 0 turns it off.
-    uint32_t zero_locals = env_u32("TOTK_ZERO_LOCALS", (uint32_t)vk_caps.mesa);
+    // Mesa function-local variables start at 0 (docs/maxwell.md 3.12). MRPG_ZERO_LOCALS=1 forces it, 0 turns it off.
+    uint32_t zero_locals = env_u32("MRPG_ZERO_LOCALS", (uint32_t)vk_caps.mesa);
     gfx_shader_set_host(vk_caps.float64, vk_caps.sbuf_align, told, gather, zero_locals != 0);
-    if (gather) rt_log("vk caps: gather coordinates biased for %u sub-texel bits (TOTK_GATHER_BIAS)", gather);
+    if (gather) rt_log("vk caps: gather coordinates biased for %u sub-texel bits (MRPG_GATHER_BIAS)", gather);
 
     char dv[32];
     driver_version(dv, sizeof dv, c->props.vendorID, c->props.driverVersion);
@@ -147,7 +147,7 @@ void vk_caps_init(VkCtx *c) {
            depth_ok(p, VK_FORMAT_D24_UNORM_S8_UINT), depth_ok(p, VK_FORMAT_X8_D24_UNORM_PACK32), depth_ok(p, VK_FORMAT_D32_SFLOAT),
            depth_ok(p, VK_FORMAT_D32_SFLOAT_S8_UINT));
     rt_log("vk caps: gpl %s fast-link %s (graphicsPipelineLibrary %u%s)", vk_caps.gpl ? "yes" : "no",
-           gpl_fast ? "yes" : "no", (unsigned)gpl_lib, !gpl_lib || !gpl_fast || vk_caps.gpl ? "" : ", off by TOTK_GPL=0");
+           gpl_fast ? "yes" : "no", (unsigned)gpl_lib, !gpl_lib || !gpl_fast || vk_caps.gpl ? "" : ", off by MRPG_GPL=0");
     rt_log("vk caps: fallbacks: float64 %s, storage buffers %s %u, subgroup pin %u on stages %#x, translator subgroup vs/fs/cs %u/%u/%u",
            vk_caps.float64 ? "native" : "softfloat64", vk_caps.sbuf_align ? "rounded down to" : "exact, alignment",
            (unsigned)l->minStorageBufferOffsetAlignment, want, (unsigned)vk_caps.sg_pin_stages, told[0], told[1], told[2]);

@@ -23,9 +23,9 @@
 
 ## Runtime
 
-- From the build dir: `totk.exe --selftest`, `--probe-kernel`, `--probe-vkexec`, `--probe-nvn-tex`, `--probe-shader`
+- From the build dir: `mrpg.exe --selftest`, `--probe-kernel`, `--probe-vkexec`, `--probe-nvn-tex`, `--probe-shader`
   pass.
-- Settings: `totk.exe --probe-cfg` and `python tests\settings_doc_check.py`.
+- Settings: `mrpg.exe --probe-cfg` and `python tests\settings_doc_check.py`.
 - Button prompts: `.venv-py314\Scripts\python tests\romfs_prompts_test.py`. Build dirs carry only `romfs-patches`; to
   test PC or Xbox prompts in game, generate the overlay first:
   `.venv-py314\Scripts\python tools\make_romfs_patches.py --version <ver> --prompts pc --out build\<dir>\romfs-patches-pc`,
@@ -71,7 +71,7 @@ The port must do what the Switch GPU does, not what Vulkan does by default. The 
 
 - ARMv8 `stlr` then `ldar` is ordered (RCsc); C11 release/acquire lets x86 reorder that store and load. Changes to
   the lifter's barriers or atomics pass `tests\diff\atomic.py` and `tests\excl_mt.py`.
-- A scheduler change is judged from one `TOTK_TRACE=sched` run by how long a ready, better thread waits for a core it
+- A scheduler change is judged from one `MRPG_TRACE=sched` run by how long a ready, better thread waits for a core it
   may use, plus the slow-frame count. Not by statistics over many runs.
 - A crash that looks like a race: rule out the save first. One reported crash was the save itself; it crashed the
   same way on a real Switch.

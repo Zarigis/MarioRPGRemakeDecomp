@@ -5,7 +5,7 @@
 // MacNativeGames contributors) make the game read both sizes from the patch page, and the texture heap that holds the
 // output- and scene-sized render targets grows with them.
 //
-// Settings, read at start: TOTK_OUTPUT_RES = <w>x<h> (default 1920x1080, the game's own), TOTK_RENDER_SCALE = the
+// Settings, read at start: MRPG_OUTPUT_RES = <w>x<h> (default 1920x1080, the game's own), MRPG_RENDER_SCALE = the
 // scene's size relative to the output: "game" (default, 5/6, the game's 1600x900 at 1080p) or a percentage; above 100
 // the game supersamples its scene, which smooths edges (anti-aliasing) at the cost of GPU time. The game's own final
 // pass (FSR 1 EASU) scales the scene to the output; the present scales the output to the window (vk_fsr.c).
@@ -61,15 +61,15 @@ static struct {
     int scene_set;             // the scene differs from the game's 5/6 of the output
     int heapdef_ok;            // romfs.c serves the grown HeapDef
     int on;                    // res_init switched the patch sets on
-    unsigned shadow;           // fixed sun shadow map size (TOTK_SHADOW_RES), 0: the game's own
-    double dlss_k;             // TOTK_DLSS quality/balanced/performance/ultra_performance: the scene's share of the output, else 0
+    unsigned shadow;           // fixed sun shadow map size (MRPG_SHADOW_RES), 0: the game's own
+    double dlss_k;             // MRPG_DLSS quality/balanced/performance/ultra_performance: the scene's share of the output, else 0
     double base_k;             // the scene's share without a DLSS mode (render_scale, or the game's 5/6)
     unsigned hw, hh;           // the largest scene a DLSS mode change can ask for: the heap is sized for it
     int live;                  // 1.4.3 with DLSS able to run: the DLSS mode can change while the game runs
 } R;
 
 // The scene size is decided before the device exists, so NGX cannot be asked yet. NGX loads DLSS from nvngx_dlss.dll
-// next to totk.exe on Windows, libnvidia-ngx-dlss.so.<version> next to totk on Linux (vk_dlaa.c vk_dlaa_init):
+// next to mrpg.exe on Windows, libnvidia-ngx-dlss.so.<version> next to mrpg on Linux (vk_dlaa.c vk_dlaa_init):
 // without that file DLSS never runs, and a DLSS mode would leave the game's plain scaling at 50..67 % of the output.
 static int dlss_dll(void) {
 #ifdef _WIN32
@@ -116,21 +116,21 @@ static int scene_for(double k, unsigned *w, unsigned *h) {
     return fit < 1.0;
 }
 
-// The scene's share of the output for a TOTK_DLSS mode; 0 for dlaa (the scene keeps base_k), while DLSS/DLAA is off
+// The scene's share of the output for a MRPG_DLSS mode; 0 for dlaa (the scene keeps base_k), while DLSS/DLAA is off
 // (the mode the menu still holds would shrink the scene for the plain upscaler) and where DLSS cannot run (dlss_dll).
 static double dlss_share(const char *m) {
     static const struct { const char *name; double k; } dlss[] = {
         {"quality", 2.0 / 3.0}, {"balanced", 0.58}, {"performance", 0.5}, {"ultra_performance", 1.0 / 3.0}};
     static int dll = -1;
-    if (!cfg_bool("TOTK_DLAA")) return 0;
+    if (!cfg_bool("MRPG_DLAA")) return 0;
     for (int i = 0; i < (int)(sizeof dlss / sizeof dlss[0]); i++)
         if (!strcmp(m, dlss[i].name)) {
             if (dll < 0 && !(dll = dlss_dll())) {
 #ifdef _WIN32
-                rt_log("resolution: DLSS %s needs nvngx_dlss.dll next to totk.exe, which is missing: the scene follows "
+                rt_log("resolution: DLSS %s needs nvngx_dlss.dll next to mrpg.exe, which is missing: the scene follows "
                        "render_scale", m);
 #else
-                rt_log("resolution: DLSS %s needs libnvidia-ngx-dlss.so.<version> next to totk, which is missing: the "
+                rt_log("resolution: DLSS %s needs libnvidia-ngx-dlss.so.<version> next to mrpg, which is missing: the "
                        "scene follows render_scale", m);
 #endif
             }
@@ -143,10 +143,10 @@ static double dlss_share(const char *m) {
 // overlay_init), which the installer makes but a developer build only has after tools/make_romfs_patches.py --aspect.
 // Without it the camera would widen while the 16:9 HUD stretched across the picture, so the game draws the largest
 // 16:9 size that fits inside the asked one and the camera aspect patch stays off (res_init); gfx_present.c shows the
-// picture with bars (present setting aspect). Not when TOTK_ROMFS_PATCHES names the overlay itself or the game version
-// has no camera aspect patch. TOTK_OUTPUT_RES is restart-only (cfg.c, RESTART), so this one decision holds all run.
+// picture with bars (present setting aspect). Not when MRPG_ROMFS_PATCHES names the overlay itself or the game version
+// has no camera aspect patch. MRPG_OUTPUT_RES is restart-only (cfg.c, RESTART), so this one decision holds all run.
 static void shape_fallback(void) {
-    const char *own = cfg_get("TOTK_ROMFS_PATCHES");
+    const char *own = cfg_get("MRPG_ROMFS_PATCHES");
     unsigned out[2] = {R.ow, R.oh};
     if (own || !res_wants_wide_overlay(out) || romfs_shaped_ready(R.ow, R.oh)) return;
     unsigned h = R.oh, w = R.ow;
@@ -163,7 +163,7 @@ static void decide(void) {
     R.decided = 1;
     R.ow = BASE_W;
     R.oh = BASE_H;
-    const char *o = cfg_value("TOTK_OUTPUT_RES");
+    const char *o = cfg_value("MRPG_OUTPUT_RES");
     unsigned w = 0, h = 0;
     char tail;
     if (sscanf(o, "%ux%u%c", &w, &h, &tail) == 2 && w >= 1280 && h >= 720 && w <= 7680 && h <= 4320) {
@@ -171,9 +171,9 @@ static void decide(void) {
         R.oh = h & ~1u;
         shape_fallback();
     } else {
-        rt_log("resolution: TOTK_OUTPUT_RES=%s is not <width>x<height> in 1280x720..7680x4320; 1920x1080", o);
+        rt_log("resolution: MRPG_OUTPUT_RES=%s is not <width>x<height> in 1280x720..7680x4320; 1920x1080", o);
     }
-    const char *s = cfg_value("TOTK_RENDER_SCALE");
+    const char *s = cfg_value("MRPG_RENDER_SCALE");
     double k = 5.0 / 6.0;
     if (strcmp(s, "game")) {
         char *end;
@@ -182,22 +182,22 @@ static void decide(void) {
             k = pct / 100.0;
             R.scene_set = 1;
         } else {
-            rt_log("resolution: TOTK_RENDER_SCALE=%s is not game or a percentage 25..400; game", s);
+            rt_log("resolution: MRPG_RENDER_SCALE=%s is not game or a percentage 25..400; game", s);
         }
     }
-    const char *sr = cfg_value("TOTK_SHADOW_RES");
+    const char *sr = cfg_value("MRPG_SHADOW_RES");
     if (strcmp(sr, "game")) {
         unsigned n = (unsigned)atoi(sr);
         if (n >= 256 && n <= 4096 && !(n & 7)) R.shadow = n;
-        else rt_log("resolution: TOTK_SHADOW_RES=%s is not game or a size 256..4096 (a multiple of 8); game", sr);
+        else rt_log("resolution: MRPG_SHADOW_RES=%s is not game or a size 256..4096 (a multiple of 8); game", sr);
     }
     // A DLSS mode other than dlaa sets the scene size instead. On 1.4.3 with DLSS able to run (DLAA on, the DLL there)
     // the mode can change while the game runs (res_dlss_mode): the scene patch is then always on and the heap is sized
     // for the largest scene the modes ask for. Everyone else keeps the game's own scene size and its dynamic resolution
     // unless render_scale or a DLSS mode asks for another, and a heap sized for that scene alone.
     R.base_k = k;
-    R.live = RT_V143 && cfg_bool("TOTK_DLAA") && dlss_dll();
-    const char *m = cfg_value("TOTK_DLSS");
+    R.live = RT_V143 && cfg_bool("MRPG_DLAA") && dlss_dll();
+    const char *m = cfg_value("MRPG_DLSS");
     R.dlss_k = dlss_share(m);
     if (R.dlss_k) rt_log("resolution: DLSS %s: the scene at %.0f %% of the output (render_scale ignored)", m, R.dlss_k * 100);
     double sk = R.dlss_k ? R.dlss_k : k;
@@ -243,26 +243,26 @@ static double scene_scale(void) {
 
 uint64_t res_heap_extra_bytes(void) { return ((res_heap_extra_kib() << 10) + 0x1fffff) & ~0x1fffffull; }
 
-// TOTK_TEX_HEAP_EXTRA_MB (0 to 4096): more room in "TextureHeap" and its parent "ゲームグラフィックス", the heap the
+// MRPG_TEX_HEAP_EXTRA_MB (0 to 4096): more room in "TextureHeap" and its parent "ゲームグラフィックス", the heap the
 // world's textures stream into. HD texture packs made for emulators with 8 GB of DRAM grow it by about 3.3 GiB in their
 // own HeapDef; without the room the game runs out and starts its panic Blood Moon over and over. The pool and the heap
 // cap grow by the same amount (memory.c mem_init).
 static uint64_t mod_tex_heap_kib(void);
 
 static uint64_t cfg_tex_heap_kib(void) {
-    const char *v = cfg_get("TOTK_TEX_HEAP_EXTRA_MB");
+    const char *v = cfg_get("MRPG_TEX_HEAP_EXTRA_MB");
     if (!v || !*v) return 0;
     char *end;
     long mb = strtol(v, &end, 10);
     if (end == v || *end || mb < 0 || mb > 4096) {
         static int logged;
-        if (!logged++) rt_log("resolution: TOTK_TEX_HEAP_EXTRA_MB=%s is not 0..4096; 0", v);
+        if (!logged++) rt_log("resolution: MRPG_TEX_HEAP_EXTRA_MB=%s is not 0..4096; 0", v);
         return 0;
     }
     return (uint64_t)mb << 10;
 }
 
-// The larger of TOTK_TEX_HEAP_EXTRA_MB and what an enabled mod's own HeapDef adds to the texture heap (mod_tex_heap_kib).
+// The larger of MRPG_TEX_HEAP_EXTRA_MB and what an enabled mod's own HeapDef adds to the texture heap (mod_tex_heap_kib).
 static uint64_t tex_heap_extra_kib(void) {
     uint64_t c = cfg_tex_heap_kib(), m = mod_tex_heap_kib();
     return c > m ? c : m;
@@ -339,7 +339,7 @@ static int heapdef_open(const void *in, size_t n, Byml *b, uint32_t *heaps, cons
 // 4K pack for TotK: by 3,419,000 KiB, 3.3 GiB, for the emulators' 8 GB memory option). Served as it is, the game asks
 // for that room and the application pool has none: it crashed at start (issue #673). So before mem_init sizes the pool,
 // every switched-on mod's HeapDef is read (mods.c mods_peek_romfs: mods_scan needs paths main sets later) and the
-// largest TextureHeap growth over the shipped size counts as TOTK_TEX_HEAP_EXTRA_MB (the larger of the two, at most
+// largest TextureHeap growth over the shipped size counts as MRPG_TEX_HEAP_EXTRA_MB (the larger of the two, at most
 // 4 GiB). romfs.c heapdef_overlay then serves another table grown by that amount in the pack's place: the table of the
 // highest switched-on mod below it whose texture heap is not grown, else the game's own, so the other heaps keep the
 // sizes the content that runs needs.
@@ -420,7 +420,7 @@ int res_heapdef_build(const void *in, size_t n, void **out, size_t *out_n) {
     memcpy(b.p + dta_at, &dta2, 4);
     memcpy(b.p + gfx_at, &gfx2, 4);
     int32_t th = 0, th2 = 0, gg = 0, gg2 = 0;
-    if (tex) {   // TOTK_TEX_HEAP_EXTRA_MB: the world texture heap and its parent grow by the same amount
+    if (tex) {   // MRPG_TEX_HEAP_EXTRA_MB: the world texture heap and its parent grow by the same amount
         static const char parent[] = "\xe3\x82\xb2\xe3\x83\xbc\xe3\x83\xa0\xe3\x82\xb0\xe3\x83\xa9\xe3\x83\x95"
                                      "\xe3\x82\xa3\xe3\x83\x83\xe3\x82\xaf\xe3\x82\xb9";   // ゲームグラフィックス
         size_t th_at = heap_size_field(&b, heaps, "TextureHeap"), gg_at = heap_size_field(&b, heaps, parent);
@@ -431,7 +431,7 @@ int res_heapdef_build(const void *in, size_t n, void **out, size_t *out_n) {
             memcpy(b.p + th_at, &th2, 4);
             memcpy(b.p + gg_at, &gg2, 4);
         } else {
-            rt_log("resolution: the HeapDef table has no TextureHeap sizes; TOTK_TEX_HEAP_EXTRA_MB left out");
+            rt_log("resolution: the HeapDef table has no TextureHeap sizes; MRPG_TEX_HEAP_EXTRA_MB left out");
             tex = 0;
             if (!extra) {
                 free(b.p);
@@ -453,7 +453,7 @@ int res_heapdef_build(const void *in, size_t n, void **out, size_t *out_n) {
         rt_log("resolution: HeapDef DynamicTextureAllocatorMem %d -> %d KiB, Graphics %d -> %d KiB", dta, dta2, gfx,
                gfx2);
     if (tex)
-        rt_log("resolution: HeapDef TextureHeap %d -> %d KiB and its parent %d -> %d KiB (TOTK_TEX_HEAP_EXTRA_MB or a "
+        rt_log("resolution: HeapDef TextureHeap %d -> %d KiB and its parent %d -> %d KiB (MRPG_TEX_HEAP_EXTRA_MB or a "
                "mod's HeapDef)", th, th2, gg, gg2);
     return 1;
 }
@@ -465,7 +465,7 @@ void res_heapdef_served(void) { R.heapdef_ok = 1; }
 // A fixed size (the shadow set, recomp/patches-v121.txt) keeps them still and sharper. Page +92.
 static void shadow_init(uint8_t *page) {
     if (!R.shadow) {
-        rt_log("resolution: sun shadow map sized by the game (TOTK_SHADOW_RES=game)");
+        rt_log("resolution: sun shadow map sized by the game (MRPG_SHADOW_RES=game)");
         return;
     }
     int set = rt_patch_set("shadow");
@@ -476,18 +476,18 @@ static void shadow_init(uint8_t *page) {
     int32_t n = (int32_t)R.shadow;
     memcpy(page + 92, &n, 4);
     rt_patch_switch(set, 1);
-    rt_log("resolution: sun shadow map %ux%u (TOTK_SHADOW_RES)", R.shadow, R.shadow);
+    rt_log("resolution: sun shadow map %ux%u (MRPG_SHADOW_RES)", R.shadow, R.shadow);
 }
 
 // ---- start: the patch page and the sets
 static uint64_t pack(unsigned w, unsigned h) { return (uint64_t)h << 32 | w; }
 
-// TOTK_SHADOW_RANGE (percent, 50 to 400; 100 = the game's): the sun's shadow cascades end at 20, 40, 80 and 160 m.
+// MRPG_SHADOW_RANGE (percent, 50 to 400; 100 = the game's): the sun's shadow cascades end at 20, 40, 80 and 160 m.
 // Other values multiply those distances through the cascade patch set (recomp/patches-v143.txt), so the sharp first
 // cascade reaches further and the visible steps between cascades move away from the player, at the cost of shadow
-// texels per metre (TOTK_SHADOW_SCALE pays that back).
+// texels per metre (MRPG_SHADOW_SCALE pays that back).
 static void res_shadow_range(void) {
-    int pct = cfg_int("TOTK_SHADOW_RANGE"), set = rt_patch_set("cascade");
+    int pct = cfg_int("MRPG_SHADOW_RANGE"), set = rt_patch_set("cascade");
     if (pct == 100) return;
     if (set < 0) {
         rt_log("resolution: the generated C has no cascade patch set; shadow_range stays 100");
@@ -499,12 +499,12 @@ static void res_shadow_range(void) {
     rt_log("resolution: shadow cascades end at %g, %g, %g and %g m", d[0], d[1], d[2], d[3]);
 }
 
-// TOTK_FONT_SCALE (1, auto, 1.5, 2, 3 or 4): the factor the game's text glyphs are drawn at, through the fontres patch
+// MRPG_FONT_SCALE (1, auto, 1.5, 2, 3 or 4): the factor the game's text glyphs are drawn at, through the fontres patch
 // set (recomp/patches-v143.txt). auto takes the output height over 1080, to the nearest of those steps. Page +96 holds
 // the factor and +100 its inverse; both are written before the set is switched on, and the fonts are made after start.
 static void font_init(void) {
     static const float steps[] = {1.0f, 1.5f, 2.0f, 3.0f, 4.0f};
-    const char *s = cfg_value("TOTK_FONT_SCALE");
+    const char *s = cfg_value("MRPG_FONT_SCALE");
     float k = 1.0f;
     if (!strcmp(s, "auto")) {
         decide();
@@ -516,7 +516,7 @@ static void font_init(void) {
     } else {
         k = (float)atof(s);
         if (!(k >= 1.0f && k <= 4.0f)) {
-            rt_log("resolution: TOTK_FONT_SCALE=%s is not auto or a factor 1..4; 1", s);
+            rt_log("resolution: MRPG_FONT_SCALE=%s is not auto or a factor 1..4; 1", s);
             k = 1.0f;
         }
     }
@@ -530,14 +530,14 @@ static void font_init(void) {
     memcpy((uint8_t *)rt_patch_page() + 96, &k, 4);
     memcpy((uint8_t *)rt_patch_page() + 100, &inv, 4);
     rt_patch_switch(set, 1);
-    rt_log("resolution: text glyphs drawn at %gx the game's size (TOTK_FONT_SCALE=%s)", (double)k, s);
+    rt_log("resolution: text glyphs drawn at %gx the game's size (MRPG_FONT_SCALE=%s)", (double)k, s);
 }
 
-// TOTK_CAPTURE_RES=1: the UI's capture textures follow the output size, through the capres patch set
+// MRPG_CAPTURE_RES=1: the UI's capture textures follow the output size, through the capres patch set
 // (recomp/patches-v143.txt). Page +104 holds the output height over 1080, written before the set is switched on; the
 // layouts make their captures after start.
 static void capture_init(void) {
-    if (!cfg_bool("TOTK_CAPTURE_RES")) return;
+    if (!cfg_bool("MRPG_CAPTURE_RES")) return;
     decide();
     float k = (float)R.oh / (float)BASE_H;
     if (k <= 1.0f) return;
@@ -548,7 +548,7 @@ static void capture_init(void) {
     }
     memcpy((uint8_t *)rt_patch_page() + 104, &k, 4);
     rt_patch_switch(set, 1);
-    rt_log("resolution: UI capture textures at %gx the layout's size (TOTK_CAPTURE_RES)", (double)k);
+    rt_log("resolution: UI capture textures at %gx the layout's size (MRPG_CAPTURE_RES)", (double)k);
 }
 
 void res_init(void) {
@@ -630,7 +630,7 @@ int res_wants_wide_overlay(const unsigned out[2]) {
     return !res_is_16x9(out[0], out[1]) && rt_patch_set("aspect") >= 0;
 }
 
-// Field of view (TOTK_FOV, percent of the game's own, 70..140, live): the camera's vertical view angle times the
+// Field of view (MRPG_FOV, percent of the game's own, 70..140, live): the camera's vertical view angle times the
 // factor on page +60 (recomp/patches-v143.txt, set fov). The horizontal angle follows through the aspect ratio. 100
 // switches the set off, so the camera code is the game's own. Runs on a settings change (gfx_present.c
 // window_settings_live), the first time at the first present.
@@ -639,12 +639,12 @@ int res_wants_wide_overlay(const unsigned out[2]) {
 void res_fov_live(void) {
     static int set = -2, shown = 100;
     if (set == -2) set = rt_patch_set("fov");
-    int pct = cfg_int("TOTK_FOV");
+    int pct = cfg_int("MRPG_FOV");
     pct = pct < FOV_MIN ? FOV_MIN : pct > FOV_MAX ? FOV_MAX : pct;
     if (pct == shown) return;
     shown = pct;
     if (set < 0) {
-        rt_log("resolution: this game version has no field-of-view patch; TOTK_FOV=%d does nothing", pct);
+        rt_log("resolution: this game version has no field-of-view patch; MRPG_FOV=%d does nothing", pct);
         return;
     }
     float k = pct / 100.0f;
@@ -653,7 +653,7 @@ void res_fov_live(void) {
     rt_log("resolution: field of view %d%% of the game's", pct);
 }
 
-// TOTK_DYNAMIC_RES = 0 holds the game's dynamic resolution at 100 % (recomp/patches-v121.txt and patches-v143.txt,
+// MRPG_DYNAMIC_RES = 0 holds the game's dynamic resolution at 100 % (recomp/patches-v121.txt and patches-v143.txt,
 // set fixres), so the scene renders at the size render_scale chose. The game picks its tier (100, 90 or 80 %) mostly
 // from a fixed cost model made for the Switch: one term grows with the object counts, one with (scene width / 1600)
 // squared. The GPU time it also measures (two NVN report timestamps, a frame apart) only lowers that prediction when the
@@ -664,7 +664,7 @@ void res_fov_live(void) {
 void res_dynres_live(void) {
     static int set = -2, shown = -1;
     if (set == -2) set = rt_patch_set("fixres");
-    int dyn = cfg_bool("TOTK_DYNAMIC_RES");
+    int dyn = cfg_bool("MRPG_DYNAMIC_RES");
     if (dyn == shown) return;
     shown = dyn;
     if (set < 0) {
@@ -681,7 +681,7 @@ void res_wanted(unsigned out[2]) {
     out[0] = R.ow, out[1] = R.oh;
 }
 
-// A TOTK_DLSS change while the game runs (vk_dlaa.c, at a present): the new scene size goes to the patch page, where
+// A MRPG_DLSS change while the game runs (vk_dlaa.c, at a present): the new scene size goes to the patch page, where
 // the game reads it when it sets its render size (main+0x585e48). 1.4.3 does that once, at start: its renderer setup
 // (main+0x7000e67028) calls main+0x585bd0(renderer, force), which picks the console mode's sizes and flags the render
 // targets for re-creation. The setup call is caught through the function-entry hook (res_fn_hit, on only until then),

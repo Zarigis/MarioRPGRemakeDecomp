@@ -26,8 +26,9 @@ Work in progress; not playable yet. What works:
 
 This repository started as a copy of [TotK Recomp](https://github.com/valentderah/totk-pc-recomp) (MIT), a static
 recompilation of *Tears of the Kingdom*, at commit `d6ac995`. Its lifter, runtime, graphics back end, tools and
-documentation are used here and are being adapted from a Nintendo first-party engine to a Unity game. Names in the
-code (`totk.exe`, `TOTK_*` settings) and most of `docs/` still carry the original project's wording.
+documentation are used here and are being adapted from a Nintendo first-party engine to a Unity game. The program and
+its settings are renamed (`mrpg.exe`, `MRPG_*`, `mrpg.ini`); most of `docs/` and many code comments still describe
+*Tears of the Kingdom*, which they call TotK.
 What was taken from which upstream project, with its licence, is listed in
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
@@ -39,8 +40,8 @@ hactool). With `config.local.toml` pointing at your files:
 ```powershell
 .venv\Scripts\python recomp\gen.py --exefs build\extracted\v101\exefs --out generated\v101
 .venv\Scripts\python tools\build_game.py --version v101
-build\v101\totk.exe --boot     # runs the game to its first graphics call
-build\v101\totk.exe            # runs the game
+build\v101\mrpg.exe --boot     # runs the game to its first graphics call
+build\v101\mrpg.exe            # runs the game
 ```
 
 ## License

@@ -25,7 +25,7 @@ GPL projects (yuzu, suyu, OpenSmash-Ultimate, Unicorn inside the game binary) ca
 
 ## Reporting bugs
 
-Use the issue form. Include the port version and game update from the title line of the settings menu (F1), your GPU and driver (Copy system info in the menu's Advanced tab copies them), the log (`logs\totk.log` next to `totk.exe`; after a crash, copy it before you start the game again), and the steps to reproduce. Screenshots are fine; recordings of long gameplay are not needed.
+Use the issue form. Include the port version and game update from the title line of the settings menu (F1), your GPU and driver (Copy system info in the menu's Advanced tab copies them), the log (`logs\mrpg.log` next to `mrpg.exe`; after a crash, copy it before you start the game again), and the steps to reproduce. Screenshots are fine; recordings of long gameplay are not needed.
 
 ## Pull requests
 
@@ -42,7 +42,7 @@ Open pull requests against `dev`. Branch from the current `dev` and rebase on it
 ### What the change must keep
 
 - **The default for everyone.** A fix for one setup (a GPU vendor, a memory size, a display) is gated on that setup. Players without the problem see no change.
-- **A switch.** New behaviour on the frame path or in rendering sits behind a `totk.ini` setting or a `TOTK_*` variable, so a player can turn it off and a reviewer can compare. A new setting is described in [totk.ini.example](totk.ini.example) and [docs/settings.md](docs/settings.md).
+- **A switch.** New behaviour on the frame path or in rendering sits behind a `mrpg.ini` setting or a `MRPG_*` variable, so a player can turn it off and a reviewer can compare. A new setting is described in [mrpg.ini.example](mrpg.ini.example) and [docs/settings.md](docs/settings.md).
 - **The fix, not a disabled feature.** A crash that goes away with a feature off points at the bug in that feature. Turning the feature off for a vendor is not a fix.
 - **The frame time on weak hardware.** Game threads and the render thread do no file I/O, no GPU allocations, no per-draw state copies and no global atomic counters. Memory kept per frame or per object is freed. The full list with measured costs: [docs/pr-review-kit/02-performance.md](docs/pr-review-kit/02-performance.md), "What the hot path must not do".
 - **Other GPUs.** New Vulkan code queries each feature, extension, format and limit it uses and keeps a working path without it. Nothing is hardcoded from what one GPU reports.
@@ -55,23 +55,23 @@ Run every row that matches your diff and list the results in the description. Co
 
 | You changed | Run |
 |---|---|
-| anything | `python tools/check_content.py --staged`; `build\<ver>\totk.exe --selftest` |
+| anything | `python tools/check_content.py --staged`; `build\<ver>\mrpg.exe --selftest` |
 | `recomp/`, `runtime/cpu.h`, `runtime/simd.h` | the differential tests against Unicorn: `tests\diff\lift.py`, `simd.py`, `atomic.py`, `func.py`, `tests\flags_check.py`, `tests\excl_mt.py`; the same with a `--cpu v2` build |
 | `recomp/jumptables.py` | `tests\jumptables_check.py`: 0 disagreements on 1.2.1 and 1.4.3 |
 | `runtime/` | `--probe-kernel`, `--probe-vkexec`, `--probe-nvn-tex`, `--probe-shader`, plus the probe for the file you touched (list at the top of `runtime/main.c`) |
-| settings | `totk.exe --probe-cfg`; `python tests\settings_doc_check.py` |
+| settings | `mrpg.exe --probe-cfg`; `python tests\settings_doc_check.py` |
 | button prompts | `.venv-py314\Scripts\python tests\romfs_prompts_test.py` |
-| mods, ExeFS patches | `.venv\Scripts\python tests\exefs_patches_test.py`; `totk.exe --probe-mods` |
+| mods, ExeFS patches | `.venv\Scripts\python tests\exefs_patches_test.py`; `mrpg.exe --probe-mods` |
 | `installer/` | `python tests\installer_test.py`; `python tests\installer_gui_test.py` |
 | shader translator | `tools\xlate_smoke.py`; `tools\shader_census.py --version <ver> --translate` with no new failure groups |
-| rendering | a run in a scene where the change acts, with `TOTK_VK_VALIDATION=1`: no new validation messages; screenshots before and after |
+| rendering | a run in a scene where the change acts, with `MRPG_VK_VALIDATION=1`: no new validation messages; screenshots before and after |
 | frame path, timing, scheduling | the measurements below |
 
 Checks that need game files run on your own copy of the game. Results go into the pull request as text: pass or fail, counts, log lines. Never attach logs or dumps that contain game data.
 
 ### Proof
 
-- **A bug fix** shows the bug before the change and gone after it, on the same repro: a screenshot pair, a log line, a probe or test that fails before and passes after. A scripted repro (`TOTK_INPUT_RECORD`, [docs/controls.md](docs/controls.md), "Scripted input") is the strongest. If the bug cannot be reproduced on your hardware, say so and point at the code that causes it.
+- **A bug fix** shows the bug before the change and gone after it, on the same repro: a screenshot pair, a log line, a probe or test that fails before and passes after. A scripted repro (`MRPG_INPUT_RECORD`, [docs/controls.md](docs/controls.md), "Scripted input") is the strongest. If the bug cannot be reproduced on your hardware, say so and point at the code that causes it.
 - **A crash fix** names the crash: the log's crash report, `vk: pass marks` lines for a lost device.
 - **Parts you could not run** (Linux-only code, HDR, vendor-only paths) are listed as unrun and gated away from everyone else.
 
@@ -79,13 +79,13 @@ Checks that need game files run on your own copy of the game. Results go into th
 
 A change on the frame path, in timing or in scheduling carries these numbers, or it waits until someone measures it.
 
-1. **Ceiling first.** Before the work, estimate the share of the frame the changed code holds on the critical path (`TOTK_CRIT` + `tools/crit_path.py`). A ceiling of a few percent is not worth a hot-path change.
+1. **Ceiling first.** Before the work, estimate the share of the frame the changed code holds on the critical path (`MRPG_CRIT` + `tools/crit_path.py`). A ceiling of a few percent is not worth a hot-path change.
 2. **Build 1.4.3** with prepared shaders in that build folder (`tools/prepare_shaders.py`, [docs/building.md](docs/building.md) step 6). Caches copied from another build folder do not count.
-3. **A heavy scene** where the change acts: a fight with a large enemy and a crowd, or a town, with `TOTK_FPS_LIMIT=360`.
+3. **A heavy scene** where the change acts: a fight with a large enemy and a crowd, or a town, with `MRPG_FPS_LIMIT=360`.
 4. **Whole runs, switch off and on, at least two each**, the same save and the same input script, timed by game seconds:
 
    ```powershell
-   .venv\Scripts\python tools\run_game.py build\v143 --script <input.txt> --seconds 60 --quiet --env TOTK_TRACE=perf,sched --env TOTK_FPS_LIMIT=360 --env <SWITCH>=0
+   .venv\Scripts\python tools\run_game.py build\v143 --script <input.txt> --seconds 60 --quiet --env MRPG_TRACE=perf,sched --env MRPG_FPS_LIMIT=360 --env <SWITCH>=0
    ```
 
    `--quiet` waits until no other game or build runs. Close everything heavy on the machine. Before reading the numbers, check that each run reached the world and showed the same scene.

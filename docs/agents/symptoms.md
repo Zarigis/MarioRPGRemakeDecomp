@@ -31,10 +31,10 @@ GPU semantics behind the graphics rows: [maxwell.md](../maxwell.md). The method 
 
 | Symptom | Usual causes | First check |
 |---|---|---|
-| stuck until a reload or teleport, locked after an action | a timer remainder below `FLT_EPSILON` with the real-time step ([debugging.md](debugging.md)) | `realtime = 0` in `totk.ini`; if the bug is gone, find the timer field |
+| stuck until a reload or teleport, locked after an action | a timer remainder below `FLT_EPSILON` with the real-time step ([debugging.md](debugging.md)) | `realtime = 0` in `mrpg.ini`; if the bug is gone, find the timer field |
 | slow motion in GPU-heavy scenes, dynamic resolution never drops | the engine's GPU time comes from report timestamps; wrong timestamps make the frame look free | what the engine reads as GPU time and what the report writes |
 | frame counter wanders 50-60 | two 60 Hz clocks (vsync event and present acquire) drifting apart | whether both follow one display tick |
-| a 30 Hz thread runs at 27 Hz, slow cutscenes | host sleep overshoot: Windows waitable timers wake 0.3-0.5 ms late | `TOTK_TRACE=sched` sleep asked versus took |
+| a 30 Hz thread runs at 27 Hz, slow cutscenes | host sleep overshoot: Windows waitable timers wake 0.3-0.5 ms late | `MRPG_TRACE=sched` sleep asked versus took |
 | 20 fps after a scheduler change | a yield back-off that starts too early | yield handling against the console's |
 | climbing or movement wrong only above some fps | game code that assumes a fixed step count per frame | compare at 30, 60 and the failing rate |
 
@@ -60,7 +60,7 @@ GPU semantics behind the graphics rows: [maxwell.md](../maxwell.md). The method 
 | device lost on one scene, every run, one vendor | a shader or pass that driver cannot run | pass marks name the pass; skip shaders by hash to bisect |
 | GPU timeout after 1-2 min, single frames over 2 s | first-time shader stalls or a huge one-shot submission on a slow GPU | prepared shaders; submission sizes at boot |
 | GPU hang at boot with pipeline libraries | point lists without a point size | the shader writes point size or the device clamps it |
-| black window after a driver update | caches from another driver | the log line `vk_pipeline: ... written by another device or driver`; delete the caches next to `totk.exe` |
+| black window after a driver update | caches from another driver | the log line `vk_pipeline: ... written by another device or driver`; delete the caches next to `mrpg.exe` |
 
 ## Memory
 

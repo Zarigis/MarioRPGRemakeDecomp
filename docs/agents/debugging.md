@@ -21,7 +21,7 @@ cheap steps decide as much as they can before the game starts. Each step ends on
 4. **Read the code.** The game's function in Ghidra ([building.md](../building.md), "Reverse engineering") or in
    `generated/<ver>/`, and our runtime path in `runtime/`. Done when the code either rules the hypothesis out or names
    the exact condition a run must show. A run confirms what the code could not rule out.
-5. **The cheapest falsifying check.** An existing switch (a `totk.ini` setting or a `TOTK_*` variable), a dump, a trace
+5. **The cheapest falsifying check.** An existing switch (a `mrpg.ini` setting or a `MRPG_*` variable), a dump, a trace
    line, a probe. When it refutes the hypothesis, stop: write down what was checked and why it fell, and start again
    at step 3 with the next hypothesis. No build, no benchmark for a refuted idea.
 6. **Repro red, then green.** The same repro shows the bug before the fix and its absence after. A fix without a
