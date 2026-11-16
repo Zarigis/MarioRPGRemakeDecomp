@@ -44,6 +44,15 @@ started, by PID: `taskkill /IM mrpg.exe` also closes the user's game.
 scene you expected. Title menus on a slow boot eat presses, and runs of one script drift apart after 10-15 game seconds
 (enemy AI, physics, weather). Two runs are comparable only when shots at the same game second show the same scene.
 
+## Driving a running game
+
+`MRPG_CONTROL=<port>` opens the control port on 127.0.0.1 (`runtime/control.c`, which lists the commands): pause the
+game with all its threads and its clock, play a turn of timed inputs from a pause to the next one, read the frame at a
+pause, record every Nth frame between pauses. `tools/mcp/mrpg_mcp.py` offers it as an MCP server (`.mcp.json` registers
+it as `mrpg`): `game_start`, `game_turn`, `game_pause`, `game_screenshot`, `game_record` and the rest are defined in
+`tools/mcp/mrpg_tools.py`, which the server loads again whenever the file changes, so the tools can be edited without
+reconnecting. The game it starts logs to `build/mcp/game.log` and outlives the server.
+
 ## Observing
 
 | You need | Use |

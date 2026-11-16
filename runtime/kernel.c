@@ -124,7 +124,19 @@ static int g_susp_cv_ready;
 static void lock(void) { plat_mutex_lock(&G); }
 static void unlock(void) { plat_mutex_unlock(&G); }
 
-uint64_t kern_now_ns(void) { return plat_now_ns(); }
+// The guest clock, which stands still while the guest is frozen (kern_freeze). g_frozen_at: its value during a freeze,
+// 0 otherwise; g_clock_off: host time the freezes so far took. A reader that sees g_frozen_at set returns it; one that
+// sees 0 finds the offset of the ended freeze already stored, so the clock never steps back.
+static uint64_t g_frozen_at, g_clock_off;
+uint64_t kern_now_ns(void) {
+    uint64_t at = __atomic_load_n(&g_frozen_at, __ATOMIC_ACQUIRE);
+    return at ? at : plat_now_ns() - __atomic_load_n(&g_clock_off, __ATOMIC_ACQUIRE);
+}
+int kern_frozen(void) { return __atomic_load_n(&g_frozen_at, __ATOMIC_RELAXED) != 0; }
+// In a loop that polls the guest clock for a deadline: the clock stands still during a freeze, so the loop sleeps.
+static inline void frozen_nap(void) {
+    if (__builtin_expect(kern_frozen(), 0)) plat_sleep_ns(1000000);
+}
 
 // ---- MRPG_CRIT=<first>-<last frame> with MRPG_TRACE=sched: every state change and wake of the guest threads and
 // every present over those frames, written to MRPG_CRIT_OUT (default crit.bin) at the last one, for
@@ -284,7 +296,7 @@ static int kspin(const int *p, int at_least, uint64_t ns) {
     unlock();
     for (unsigned i = 1; !(ok = __atomic_load_n(p, __ATOMIC_ACQUIRE) >= at_least); i++) {
         plat_pause();
-        if (!(i & 31) && kern_now_ns() >= end) break;
+        if (!(i & 31) && (kern_now_ns() >= end || kern_frozen())) break;
     }
     lock();
     return ok;
@@ -1008,13 +1020,32 @@ static void core_take_now(RtThread *t);
 // A thread paused by SetThreadActivity takes no core until it is resumed. Every caller is in an SVC, a host call or at
 // a checkpoint, where the guest registers are all in the Cpu, so the pausing thread can read them (GetThreadContext3).
 // The one exception is kern_ap_yield (in_ap): there the thread runs on to its next checkpoint first.
+// A freeze (kern_freeze, the control port's pause) stops every thread the same way.
+static int held_back(const RtThread *t) { return t->suspended || kern_frozen(); }
 static void core_take(RtThread *t) {
     for (;;) {
-        while (t->suspended && !t->in_ap && t->cur_core < 0) plat_cond_wait(&t->cv, &G);
+        while (held_back(t) && !t->in_ap && t->cur_core < 0) plat_cond_wait(&t->cv, &G);
         core_take_now(t);
-        if (!t->suspended || t->in_ap || t->cur_core < 0) return;
+        if (!held_back(t) || t->in_ap || t->cur_core < 0) return;
         core_put(t);
     }
+}
+
+// Freezes or thaws the guest: every guest thread gives its core up at its next SVC, host call return or checkpoint and
+// takes none until the thaw, and the guest clock stands still meanwhile, so the game sees no time pass. Host threads
+// (window, replay, audio device) go on. From any thread; a guest thread that calls it stops at its own next checkpoint.
+void kern_freeze(int on) {
+    lock();
+    if (on && !g_frozen_at) {
+        uint64_t now = plat_now_ns() - g_clock_off;
+        __atomic_store_n(&g_frozen_at, now ? now : 1, __ATOMIC_RELEASE);
+        for (RtThread *t = g_all; t; t = t->all) __atomic_store_n(&t->preempt, 1, __ATOMIC_RELAXED);
+    } else if (!on && g_frozen_at) {
+        __atomic_store_n(&g_clock_off, plat_now_ns() - g_frozen_at, __ATOMIC_RELEASE);
+        __atomic_store_n(&g_frozen_at, 0, __ATOMIC_RELEASE);
+        for (RtThread *t = g_all; t; t = t->all) plat_cond_broadcast(&t->cv);
+    }
+    unlock();
 }
 
 static void core_take_now(RtThread *t) {
@@ -1049,7 +1080,7 @@ static void core_take_now(RtThread *t) {
     if (g_ap_int && t->target && t->cur_core < 0) {   // most waits end within microseconds: spin before interrupting
         uint64_t end = kern_now_ns() + AP_FIRST_NS;
         unlock();
-        while (__atomic_load_n(&t->cur_core, __ATOMIC_RELAXED) < 0 && kern_now_ns() < end) plat_pause();
+        while (__atomic_load_n(&t->cur_core, __ATOMIC_RELAXED) < 0 && kern_now_ns() < end && !kern_frozen()) plat_pause();
         lock();
         if (t->cur_core >= 0) g_ap_spin_ok++;
     } else if (t->cur_core < 0) {   // a holder may block or yield any moment (kspin_ns)
@@ -1167,7 +1198,7 @@ void kern_checkpoint(void) {
         t->dg_pc = t->cur->pc;
         t->dg_lr = t->cur->x[30];
     }
-    if (t->suspended && t->cur_core >= 0) {   // paused: give the core up here and wait for the resume
+    if (held_back(t) && t->cur_core >= 0) {   // paused: give the core up here and wait for the resume
         core_put(t);
         core_take(t);
         unlock();
@@ -1209,7 +1240,7 @@ void kern_ap_yield(void) {
         core_take(t);
         t->in_ap = 0;
     }
-    if (t->suspended) t->preempt = 1;   // core_put cleared the request of the thread that pauses this one
+    if (held_back(t)) t->preempt = 1;   // core_put cleared the request of the thread that pauses this one
     unlock();
 }
 
@@ -1639,7 +1670,7 @@ static void sleep_ns(RtThread *t, int64_t ns) {
     (void)t;
     if (ns <= SLEEP_SPIN_NS) {
         uint64_t end = kern_now_ns() + (uint64_t)ns;
-        while (kern_now_ns() < end) plat_pause();
+        while (kern_now_ns() < end) plat_pause(), frozen_nap();
         return;
     }
     plat_wait_ns((uint64_t)ns);

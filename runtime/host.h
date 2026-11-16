@@ -254,6 +254,13 @@ void kern_bind_system_event(Cpu *c, uint64_t ev, int autoclear);   // guest thre
 void kern_signal_system_event(uint64_t ev);                // any thread
 int kern_svc(Cpu *c, uint32_t imm);                        // thread/sync SVCs; 1 if handled
 uint64_t kern_now_ns(void);
+void kern_freeze(int on);            // stops every guest thread and the guest clock, or lets them go on (kernel.c)
+int kern_frozen(void);
+// The control port (control.c, MRPG_CONTROL=<port>): control_frame at every present, control_input adds its buttons
+// and sticks to the merged input.
+void control_init(void);
+void control_frame(const void *tex, uint64_t n);
+void control_input(uint64_t *buttons, int32_t sl[2], int32_t sr[2]);
 extern uint64_t rt_guest_start_ns;   // kern_now_ns when the guest started (boot.c), 0 before
 typedef struct { uint64_t svcs, threads, host_calls; } RtStats;
 RtStats rt_stats(void);                                    // host_calls: hostfn_calls()

@@ -48,7 +48,7 @@ This repository is public. Game data lives outside it and every derived file sta
 
 ## Running and debugging
 
-- Running the game, screenshots, frame dumps, timings: [docs/agents/running.md](docs/agents/running.md).
+- Running the game, screenshots, frame dumps, timings, and driving it step by step through the `mrpg` MCP server: [docs/agents/running.md](docs/agents/running.md).
 - Investigating a bug, glitch or crash: search [docs/agents/symptoms.md](docs/agents/symptoms.md) by the player's words first, then follow [docs/agents/debugging.md](docs/agents/debugging.md). Read the code before running the game.
 
 ## Pull requests
