@@ -559,7 +559,19 @@ static void capture_init(void) {
     rt_log("resolution: UI capture textures at %gx the layout's size (MRPG_CAPTURE_RES)", (double)k);
 }
 
+// Super Mario RPG: the shadow map scale (recomp/patches-v101.txt, set shadowmap). The game's URP asset asks for a
+// 2048 main light shadow map, shared by two cascades in battles (2048x1024) and spread over the whole battle field, so
+// a character's shadow gets few texels. The patched code multiplies that resolution by the integer at page +0x54,
+// MRPG_SHADOW_MAP_SCALE (1 to 4, default 2). It is written before the game draws, so the page never holds 0 there.
+static void shadow_map_scale(uint8_t *page) {
+    int32_t k = cfg_int("MRPG_SHADOW_MAP_SCALE");
+    if (k < 1 || k > 4) k = 1;
+    memcpy(page + 0x54, &k, 4);
+    if (rt_patch_set("shadowmap") >= 0 && k != 1) rt_log("resolution: shadow maps %d times the game's size on each side", k);
+}
+
 void res_init(void) {
+    if (rt_patch_page()) shadow_map_scale(rt_patch_page());
     font_init();
     capture_init();
     res_shadow_range();

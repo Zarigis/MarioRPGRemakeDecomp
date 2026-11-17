@@ -129,8 +129,7 @@ static const char *const text_en[UI_TEXT_COUNT] = {
     [UI_MENU_HDR_HUE_DESC] = "Bright colours such as fire and sparks turn towards white as in the game's own SDR picture, "
                              "matching the light they cast; 0 keeps them fully saturated.",
     [UI_MENU_SHADOW_SCALE] = "Shadow resolution",
-    [UI_MENU_SHADOW_SCALE_DESC] = "Draws the sun's shadow maps this many times larger on each side than the game's 960x960: "
-                                  "sharper shadow edges and leaf shadows. Takes effect at the next start.",
+    [UI_MENU_SHADOW_SCALE_DESC] = "Draws the shadow maps this many times larger on each side than the game's own: sharper, less blocky shadows, above all in battles, for more GPU time and video memory. 1 is the game's own.",
     [UI_MENU_PCSS] = "Soft shadows",
     [UI_MENU_PCSS_DESC] = "Sun shadows sharp where an object meets the ground and softer the further the shadow falls "
                           "(PCSS). 0 keeps the game's filter. Takes effect at the next start.",
@@ -612,8 +611,7 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
     [UI_MENU_HDR_HUE_DESC] = "Яркие цвета (огонь, искры) уходят к белому, как в SDR-картинке игры, и совпадают со светом, "
                              "который они дают; 0 оставляет их полностью насыщенными.",
     [UI_MENU_SHADOW_SCALE] = "Разрешение теней",
-    [UI_MENU_SHADOW_SCALE_DESC] = "Карты теней от солнца рисуются во столько раз больше по каждой стороне, чем 960x960 "
-                                  "самой игры: края теней и тени листвы чётче. Действует после перезапуска.",
+    [UI_MENU_SHADOW_SCALE_DESC] = "Карты теней рисуются во столько раз больше по каждой стороне, чем в самой игре: тени чётче и не такие угловатые, особенно в боях, ценой времени GPU и видеопамяти. 1 — как в игре.",
     [UI_MENU_PCSS] = "Мягкие тени",
     [UI_MENU_PCSS_DESC] = "Тени от солнца резкие там, где предмет касается земли, и мягче, чем дальше падает тень "
                           "(PCSS). 0 оставляет фильтр игры. Действует после перезапуска.",
@@ -1441,9 +1439,7 @@ static const char *const text_pt_br[UI_TEXT_COUNT] = {
     [UI_MENU_HDR_HUE_DESC] = "Cores fortes como fogo e faíscas vão para o branco como na imagem SDR do próprio jogo e "
                              "combinam com a luz que emitem; 0 as mantém totalmente saturadas.",
     [UI_MENU_SHADOW_SCALE] = "Resolução das sombras",
-    [UI_MENU_SHADOW_SCALE_DESC] = "Desenha os mapas de sombra do sol essa quantidade de vezes maiores em cada lado "
-                                  "que os 960x960 do jogo: bordas de sombra e sombras de folhas mais nítidas. Vale no "
-                                  "próximo início.",
+    [UI_MENU_SHADOW_SCALE_DESC] = "Desenha os mapas de sombra essa quantidade de vezes maiores em cada lado do que os do próprio jogo: sombras mais nítidas e menos quadriculadas, sobretudo nas batalhas, com mais tempo de GPU e memória de vídeo. 1 é o do jogo.",
     [UI_MENU_SHADOW_RANGE] = "Alcance das cascatas de sombra",
     [UI_MENU_SHADOW_RANGE_DESC] = "Afasta os degraus em que as sombras ficam mais suaves (20, 40, 80 e 160 m no "
                                   "jogo). Espalha o mapa de sombras por mais terreno: aumente a Resolução das sombras "
@@ -2061,7 +2057,7 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
     [UI_MENU_HDR_HUE] = "高光色调校正",
     [UI_MENU_HDR_HUE_DESC] = "火焰、火花等明亮色彩像游戏自身的 SDR 画面一样趋向白色，与它们发出的光一致；0 保持完全饱和。",
     [UI_MENU_SHADOW_SCALE] = "阴影分辨率",
-    [UI_MENU_SHADOW_SCALE_DESC] = "将太阳阴影贴图的每条边绘制为游戏 960x960 的若干倍：阴影边缘和树叶阴影更清晰。下次启动时生效。",
+    [UI_MENU_SHADOW_SCALE_DESC] = "将阴影贴图的每条边绘制为游戏自身的若干倍：阴影更清晰、锯齿更少，战斗中尤为明显，但会占用更多 GPU 时间和显存。1 为游戏原始大小。",
     [UI_MENU_SHADOW_RANGE] = "阴影级联范围",
     [UI_MENU_SHADOW_RANGE_DESC] = "把阴影变柔和的分界（游戏中为 20、40、80 和 160 米）推得更远。阴影贴图会覆盖更大的地面，请同时提高阴影分辨率。下次启动时生效。",
     [UI_MENU_CONTACT_SHADOWS] = "接触阴影",

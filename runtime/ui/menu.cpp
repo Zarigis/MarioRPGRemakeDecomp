@@ -632,6 +632,11 @@ static void tab_screen(float scale) {
     opt_choice("MRPG_PERF_OVERLAY", UI_MENU_PERF_OVERLAY, perf, 3, UI_MENU_PERF_OVERLAY_DESC);
     opt_group(UI_MENU_GRAPHICS);
     row_output_res();
+    {   // resolution.c shadow_map_scale
+        static const char *const vals[] = {"1", "2", "3", "4"};
+        static const char *const names[] = {"1x", "2x", "3x", "4x"};
+        opt_choice_list("MRPG_SHADOW_MAP_SCALE", UI_MENU_SHADOW_SCALE, vals, names, 4, UI_MENU_SHADOW_SCALE_DESC);
+    }
     static const UiTextId up[] = {UI_MENU_UPSCALER_FSR, UI_MENU_UPSCALER_BILINEAR};
     opt_choice("MRPG_UPSCALER", UI_MENU_UPSCALER, up, 2, UI_MENU_UPSCALER_DESC);
     opt_slider("MRPG_SHARPNESS", UI_MENU_SHARPNESS, 0, 100, UI_MENU_SHARPNESS_DESC, 5, "%.0f %%");

@@ -1,6 +1,7 @@
 # Code patch sets of Super Mario RPG 1.0.1 (recomp/patches.py describes the format; gen.py --patches reads this file).
 # Module offsets are in main. The patch page's words in use: +32 the output width, +36 its height
-# (runtime/resolution.c, res_init); +64..83 the walking speed by stick tilt and the movement dead zone (runtime/input.c, move_tilt).
+# (runtime/resolution.c, res_init); +64..83 the walking speed by stick tilt and the movement dead zone (runtime/input.c, move_tilt); +84 the shadow map scale
+# (runtime/resolution.c, res_init).
 
 # Output size. The Unity player's default resolution routine (main+0x6b7204, called at start and when the console
 # mode changes, where it logs "Operation mode changed to console, switching to: %ix%i") stores 1280x720 and then, docked
@@ -60,3 +61,12 @@ site tilt main 2195f80 72a7c468 b9405108                                        
 set freedir  MRPG_FREE_DIRECTION 1
 site freedir main 2196060 1e284d68 1e284d08   # fcsel s8, s11 (0), s8, mi -> fcsel s8, s8, s8, mi
 site freedir main 219606c 1e294d69 1e294d29   # fcsel s9, s11 (0), s9, mi -> fcsel s9, s9, s9, mi
+
+# Shadow map size. UniversalRenderPipeline.InitializeShadowData (main+0x19b9000) copies the URP asset's main light
+# shadow map resolution (+0x7c of the asset: 2048 here, a 2048x1024 atlas of two cascades in battles) into the frame's
+# shadow data as its width and height. Both reads multiply it by the integer at page +0x54 (MRPG_SHADOW_MAP_SCALE,
+# runtime/resolution.c res_init; the page must hold 1 at least before the first frame). x10 is not read in the rest of
+# the function.
+set shadowmap MRPG_PATCH_SHADOWMAP 1
+site shadowmap main 19b95c4 b9407e89 b9407e89 @page:x10 b940554a 1b0a7d29   # ldr w9, [x20, #0x7c] -> the same; w9 *= [page+0x54]
+site shadowmap main 19b95cc b9407e89 b9407e89 @page:x10 b940554a 1b0a7d29   # the same for the height
