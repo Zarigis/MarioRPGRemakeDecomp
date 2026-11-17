@@ -11,6 +11,7 @@
 #include <string.h>
 #include <windows.h>
 #include <imm.h>
+#include <dxgi1_6.h>
 
 #include "cfg.h"
 #include "flight.h"
@@ -184,12 +185,49 @@ static double monitor_rate_hz(HMONITOR mon) {
     return hz;
 }
 
-// Window thread. force: the display mode changed, measure even on the same monitor.
+// The peak luminance Windows reports for mon while it is in HDR mode (DXGI_OUTPUT_DESC1.MaxLuminance: the display's
+// EDID, or the Windows HDR Calibration app's profile), 0 when unknown or in SDR. dxgi.dll is loaded on first use, and
+// the two interface IDs are written out here so no import library is needed.
+static float monitor_peak_nits(HMONITOR mon) {
+    static const GUID iid_factory1 = {0x770aae78, 0xf26f, 0x4dba, {0xa8, 0x29, 0x25, 0x3c, 0x83, 0xd1, 0xb3, 0x87}};
+    static const GUID iid_output6 = {0x068346e8, 0xaaec, 0x4b84, {0xad, 0xd7, 0x13, 0x7f, 0x51, 0x3f, 0x77, 0xa1}};
+    static HRESULT(WINAPI * create)(REFIID, void **);
+    static int loaded;
+    if (!loaded) {
+        loaded = 1;
+        HMODULE m = LoadLibraryW(L"dxgi.dll");
+        if (m) create = (HRESULT(WINAPI *)(REFIID, void **))(void (*)(void))GetProcAddress(m, "CreateDXGIFactory1");
+    }
+    IDXGIFactory1 *f = NULL;
+    if (!create || FAILED(create(&iid_factory1, (void **)&f))) return 0;
+    float peak = 0;
+    IDXGIAdapter1 *a;
+    for (UINT i = 0; !peak && f->lpVtbl->EnumAdapters1(f, i, &a) == S_OK; i++) {
+        IDXGIOutput *o;
+        for (UINT j = 0; !peak && a->lpVtbl->EnumOutputs(a, j, &o) == S_OK; j++) {
+            IDXGIOutput6 *o6;
+            if (SUCCEEDED(o->lpVtbl->QueryInterface(o, &iid_output6, (void **)&o6))) {
+                DXGI_OUTPUT_DESC1 d;
+                if (SUCCEEDED(o6->lpVtbl->GetDesc1(o6, &d)) && d.Monitor == mon &&
+                    d.ColorSpace == DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020)
+                    peak = d.MaxLuminance;
+                o6->lpVtbl->Release(o6);
+            }
+            o->lpVtbl->Release(o);
+        }
+        a->lpVtbl->Release(a);
+    }
+    f->lpVtbl->Release(f);
+    return peak;
+}
+
+// Window thread. force: the display mode changed (HDR switched on or off included), measure even on the same monitor.
 static void refresh_rate_update(HWND h, int force) {
     HMONITOR mon = MonitorFromWindow(h, MONITOR_DEFAULTTOPRIMARY);
     if (!force && mon == g_rate_mon) return;
     g_rate_mon = mon;
     gfx_window_set_refresh(monitor_rate_hz(mon));
+    gfx_window_set_peak(monitor_peak_nits(mon));
 }
 
 int gfx_window_monitor_size(int *w, int *h) {

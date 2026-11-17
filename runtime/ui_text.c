@@ -119,7 +119,8 @@ static const char *const text_en[UI_TEXT_COUNT] = {
                          "Wayland compositor with colour management; without it the picture stays SDR. Applies after a "
                          "restart. The colour profile above is for SDR and is not used in HDR.",
     [UI_MENU_HDR_PEAK] = "Peak brightness",
-    [UI_MENU_HDR_PEAK_DESC] = "Your display's peak in nits; the brightest highlights stop there.",
+    [UI_MENU_HDR_PEAK_DESC] = "Your display's peak in nits; the brightest highlights stop there. Never above the peak "
+                              "Windows reports for the display.",
     [UI_MENU_HDR_GAME] = "Game brightness",
     [UI_MENU_HDR_GAME_DESC] = "Nits of the picture's white (paper white). 203 is the HDR reference; raise it in a "
                               "bright room.",
@@ -602,7 +603,8 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
                          "Wayland-композитор с управлением цветом; без него картинка остаётся SDR. Применяется после "
                          "перезапуска. Цветовой профиль выше — для SDR и в HDR не используется.",
     [UI_MENU_HDR_PEAK] = "Пиковая яркость",
-    [UI_MENU_HDR_PEAK_DESC] = "Пик вашего дисплея в нитах; самые яркие блики останавливаются на нём.",
+    [UI_MENU_HDR_PEAK_DESC] = "Пик вашего дисплея в нитах; самые яркие блики останавливаются на нём. Не выше "
+                              "пика, который Windows сообщает для дисплея.",
     [UI_MENU_HDR_GAME] = "Яркость игры",
     [UI_MENU_HDR_GAME_DESC] = "Ниты белого цвета картинки (paper white). 203 — эталон HDR; в светлой комнате "
                               "поднимите.",
@@ -1385,7 +1387,8 @@ static const char *const text_pt_br[UI_TEXT_COUNT] = {
                          "compositor Wayland com gerenciamento de cor; sem isso a imagem continua SDR. Vale após "
                          "reiniciar. O perfil de cor acima é para SDR e não é usado em HDR.",
     [UI_MENU_HDR_PEAK] = "Brilho máximo",
-    [UI_MENU_HDR_PEAK_DESC] = "O pico da sua tela em nits; os realces mais claros param aí.",
+    [UI_MENU_HDR_PEAK_DESC] = "O pico da sua tela em nits; os realces mais claros param aí. Nunca acima do pico "
+                              "que o Windows informa para a tela.",
     [UI_MENU_HDR_GAME] = "Brilho do jogo",
     [UI_MENU_HDR_GAME_DESC] = "Nits do branco da imagem (branco de papel). 203 é a referência de HDR; aumente num "
                               "ambiente claro.",
@@ -2014,7 +2017,7 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
     [UI_MENU_HDR_DESC] = "在 HDR 显示器上呈现明亮的高光。需要在 Windows 中开启 HDR（“使用 HDR”），或使用带色彩管理的 Wayland 合成器；否则画面保持 "
                          "SDR。重启后生效。上方的色彩配置用于 SDR，在 HDR 下不使用。",
     [UI_MENU_HDR_PEAK] = "峰值亮度",
-    [UI_MENU_HDR_PEAK_DESC] = "显示器的峰值亮度（尼特）；最亮的高光止于此。",
+    [UI_MENU_HDR_PEAK_DESC] = "显示器的峰值亮度（尼特）；最亮的高光止于此。不会超过 Windows 报告的显示器峰值。",
     [UI_MENU_HDR_GAME] = "游戏亮度",
     [UI_MENU_HDR_GAME_DESC] = "画面白色（纸白）的尼特值。203 为 HDR 参考值；在明亮的房间里可调高。",
     [UI_MENU_HDR_UI] = "HUD 和菜单亮度",

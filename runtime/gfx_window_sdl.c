@@ -130,6 +130,15 @@ static void refresh_rate_update(void) {
     gfx_window_set_refresh(hz);
 }
 
+// The HDR peak of the window's display: SDR white (in scRGB units of 80 nits) times the headroom above it; 0 in SDR.
+static void peak_update(void) {
+    SDL_PropertiesID p = SDL_GetWindowProperties(g_win);
+    float white = SDL_GetFloatProperty(p, SDL_PROP_WINDOW_SDR_WHITE_LEVEL_FLOAT, 0.0f);
+    float room = SDL_GetFloatProperty(p, SDL_PROP_WINDOW_HDR_HEADROOM_FLOAT, 0.0f);
+    int on = SDL_GetBooleanProperty(p, SDL_PROP_WINDOW_HDR_ENABLED_BOOLEAN, false);
+    gfx_window_set_peak(on && white > 0.0f && room > 1.0f ? 80.0f * white * room : 0.0f);
+}
+
 int gfx_window_monitor_size(int *w, int *h) {
     if (!g_win) return 0;
     const SDL_DisplayMode *m = SDL_GetCurrentDisplayMode(SDL_GetDisplayForWindow(g_win));
@@ -180,7 +189,11 @@ static void handle(const SDL_Event *e) {
     case SDL_EVENT_DISPLAY_CURRENT_MODE_CHANGED:
         density_update();
         refresh_rate_update();
+        peak_update();
         gfx_window_mark_dirty();
+        break;
+    case SDL_EVENT_WINDOW_HDR_STATE_CHANGED:
+        peak_update();
         break;
     case SDL_EVENT_WINDOW_FOCUS_GAINED:
     case SDL_EVENT_WINDOW_FOCUS_LOST:
@@ -264,6 +277,7 @@ static void open_window(void *arg) {
     density_update();
     note_applied();
     refresh_rate_update();
+    peak_update();
     if (cfg_get("MRPG_BACKGROUND_WINDOW")) rt_log("gfx: MRPG_BACKGROUND_WINDOW has no effect with SDL windows");
     if (gfx_cfg_fullscreen()) SDL_SetWindowFullscreen(g_win, true);
     SDL_SyncWindow(g_win);

@@ -35,6 +35,7 @@
 
 #include "cfg.h"
 #include "gfx.h"
+#include "gfx_wsys.h"
 #include "hdr_encode_spv.h"
 #include "hdr_fullscreen_spv.h"
 #include "hdr_tonemap_spv.h"
@@ -57,22 +58,36 @@ int vk_hdr_wanted(void) {
 
 void vk_hdr_off(void) { g_wanted = 0; }
 
-// The three nits, read again when the settings change. The replay (every draw's support buffer) and the present
+// The HDR peak of the window's monitor in nits (gfx_window_set_peak, from the window back end; 0 unknown).
+static volatile int32_t g_display_peak;
+void gfx_window_set_peak(float nits) { __atomic_store_n(&g_display_peak, (int32_t)(nits + 0.5f), __ATOMIC_RELAXED); }
+
+// The picture's peak is MRPG_HDR_PEAK_NITS, but never above the peak the monitor reports: HDR10 metadata that claims
+// a brighter peak than the display has makes a display that reads it compress the whole range into its own, and the
+// picture comes out dull. The display reads it in fullscreen, where the picture goes to it without DWM composing it
+// (an overlapping window brings the composition, and the colours, back). A report under 400 nits is not trusted.
+// The three nits, read again when the settings change or the monitor's peak does. The replay (every draw's support buffer) and the present
 // thread read them: an update fills the snapshot not in use and then publishes it.
 typedef struct { float peak, game, ui, hue; } Nits;
-static struct { unsigned seen; int cur; Nits snap[2]; PlatMutex lock; } N = {.seen = ~0u, .lock = PLAT_MUTEX_INIT};
+static struct { unsigned seen; int32_t disp; int cur; Nits snap[2]; PlatMutex lock; } N = {.seen = ~0u,
+                                                                                         .lock = PLAT_MUTEX_INIT};
 
 static Nits nits(void) {
     unsigned v = cfg_version();
-    if (__atomic_load_n(&N.seen, __ATOMIC_ACQUIRE) != v) {
+    int32_t dp = __atomic_load_n(&g_display_peak, __ATOMIC_RELAXED);
+    if (__atomic_load_n(&N.seen, __ATOMIC_ACQUIRE) != v || __atomic_load_n(&N.disp, __ATOMIC_RELAXED) != dp) {
         plat_mutex_lock(&N.lock);
-        if (N.seen != v) {
+        if (N.seen != v || N.disp != dp) {
             Nits *n = &N.snap[!N.cur];
             n->peak = fmaxf((float)cfg_double("MRPG_HDR_PEAK_NITS"), 80.0f);
+            if (dp >= 400 && (float)dp < n->peak) n->peak = (float)dp;
+            if (dp != N.disp && dp)
+                rt_log("hdr: the monitor reports a peak of %d nits; highlights stop at %.0f", (int)dp, n->peak);
             n->game = fmaxf((float)cfg_double("MRPG_HDR_GAME_NITS"), 80.0f);
             n->ui = fmaxf((float)cfg_double("MRPG_HDR_UI_NITS"), 80.0f);
             n->hue = fminf(fmaxf((float)cfg_double("MRPG_HDR_HUE"), 0.0f), 100.0f) / 100.0f;
             __atomic_store_n(&N.cur, !N.cur, __ATOMIC_RELEASE);
+            __atomic_store_n(&N.disp, dp, __ATOMIC_RELAXED);
             __atomic_store_n(&N.seen, v, __ATOMIC_RELEASE);
         }
         plat_mutex_unlock(&N.lock);
