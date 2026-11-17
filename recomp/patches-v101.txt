@@ -96,3 +96,20 @@ site camera main 365a28 bd418262 bd418262 1e272842                     # ldr s2,
 site camera main 365a4c bd418660 bd418660 @page:x8 bd406907 1e2e1010 1e3028e7 1e271800   # ldr s0, density; s0 /= 1 + [page+0x68]
 site camera main 1d620d8 f9400280 @page:x8 bd406100 1e201901 1e213901 bd006501 1e2e1002 1e223802 bd006902 9000fe00 f9432800 97980e45   # offsets, then bl main+0x3659ec(RenderSettings)
 site camera main 1d620dc f9405c08 @page:x8 b900651f b900691f f9400280 f9405c08   # both back to 0; ldr x0, [x20]; the original
+
+# No gauge moves (MRPG_HIDE_GAUGE). The remake's gauge, its gauge moves and the timed-hit chain come in after the
+# game's prologue: GlobalWork.is_prologue (main+0x18915d0, story flag 0xc9 not set) is asked by the code that fills the
+# gauge (Battle.BattleAnimSet.add_just_gauge), shows it and its full-gauge button (BATTLE_UI_Component.BattleUI
+# RenkeiVisible and RenkeiButtonVisible), takes the gauge move button (_Stella.UI2.BattleMenuCommand
+# PlusMinusButtonCommand) and counts a chain and grants its bonuses (Battle.BattleSkillParams.after_just_combo), and
+# each returns early in the prologue. Here those five answers are "prologue": w0 = 1 before each test. The other callers
+# of is_prologue (the stat-up ratios of Battle.BuffManager, a debug menu) keep the real answer.
+set nogauge  MRPG_HIDE_GAUGE     0
+site nogauge main 18c6dd8 360000c0 52800020 360000c0   # add_just_gauge: tbz w0 -> w0 = 1; tbz
+site nogauge main 1d928c0 360000c0 52800020 360000c0   # RenkeiVisible
+site nogauge main 1d929f0 37000ca0 52800020 37000ca0   # RenkeiButtonVisible: tbnz
+site nogauge main 1eca89c 370005e0 52800020 370005e0   # PlusMinusButtonCommand
+site nogauge main 21f4c68 37002140 52800020 37002140   # after_just_combo
+# The chain counter ("<N> Chain") is shown by Battle.BattleAnimExcel.update_hit itself, past those checks: its
+# ComboCount.SetCount(count + 1) call (main+0x1b6e230) is skipped, where the code tests that the counter exists.
+site nogauge main 1b6e210 36000120 14000009   # tbz w0, skip -> b past SetCount

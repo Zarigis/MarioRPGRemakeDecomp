@@ -337,6 +337,11 @@
 # game is told the same channel count and mixes for it. Takes effect at the next start.
 # audio_channels = stereo
 
+[game]
+# No gauge moves: 1 plays battles without the remake's gauge, as in the original game: no gauge, no gauge moves, no
+# timed-hit chain counter or chain bonuses. Read at start.
+# hide_gauge = 0
+
 [input]
 # Gamepad motion controls (0 = off) and vibration (0 = off).
 # motion = 1

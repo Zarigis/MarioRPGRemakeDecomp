@@ -203,6 +203,7 @@ uint64_t frame_step_ticks(void) { return atomic_load_explicit(&game_ns, memory_o
 
 void frame_step_present(uint64_t display_ns, int interval) {
     locked_read();
+    nogauge_tick();
     uint64_t step = frame_step_tick_ns() * (uint64_t)(interval > 0 ? interval : 1);
     atomic_store_explicit(&game_ns, atomic_load_explicit(&game_ns, memory_order_relaxed) + step, memory_order_relaxed);
     if (rt_trace & RT_TRACE_PERF) speed_report(display_ns, interval);

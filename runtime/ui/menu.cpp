@@ -677,6 +677,7 @@ static void tab_game(float scale) {
     static const UiTextId mode[] = {UI_MENU_MODE_DOCKED, UI_MENU_MODE_HANDHELD};
     opt_choice("MRPG_OPERATION_MODE", UI_MENU_OPERATION_MODE, mode, 2, UI_MENU_OPERATION_MODE_DESC);
     opt_toggle("MRPG_ASSUME_FOCUS", UI_MENU_ASSUME_FOCUS, UI_MENU_ASSUME_FOCUS_DESC);
+    opt_toggle("MRPG_HIDE_GAUGE", UI_MENU_HIDE_GAUGE, UI_MENU_HIDE_GAUGE_DESC);   // recomp/patches-v101.txt, set nogauge
     row_play_time();
     opt_end();
 }
