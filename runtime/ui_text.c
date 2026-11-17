@@ -163,8 +163,9 @@ static const char *const text_en[UI_TEXT_COUNT] = {
                           "they replace the 3D render scale. Takes effect at once.",
     [UI_MENU_DLSS_DLAA] = "DLAA (native)", [UI_MENU_DLSS_QUALITY] = "Quality", [UI_MENU_DLSS_BALANCED] = "Balanced",
     [UI_MENU_DLSS_PERFORMANCE] = "Performance", [UI_MENU_DLSS_ULTRA] = "Ultra Performance",
-    [UI_MENU_FXAA] = "Game anti-aliasing (FXAA)",
-    [UI_MENU_FXAA_DESC] = "The game's own FXAA edge smoothing. It blurs fine detail a little; with DLAA on it is not needed.",
+    [UI_MENU_FXAA] = "Anti-aliasing (FXAA)",
+    [UI_MENU_FXAA_DESC] = "Smooths jagged edges in the 3D scene; the HUD and menus stay sharp. Off to on needs a "
+                          "restart when the game started with it off.",
 
     [UI_MENU_FPS_LIMIT] = "Frame rate limit",
     [UI_MENU_FPS_LIMIT_DESC] = "The most frames per second the game draws. Above 60 is experimental. Battles always run at 60: the game counts them in frames.",
@@ -645,8 +646,9 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
                           "экономит время видеокарты; они заменяют масштаб 3D-отрисовки. Действует сразу.",
     [UI_MENU_DLSS_DLAA] = "DLAA (родное)", [UI_MENU_DLSS_QUALITY] = "Качество", [UI_MENU_DLSS_BALANCED] = "Баланс",
     [UI_MENU_DLSS_PERFORMANCE] = "Производительность", [UI_MENU_DLSS_ULTRA] = "Макс. производительность",
-    [UI_MENU_FXAA] = "Сглаживание игры (FXAA)",
-    [UI_MENU_FXAA_DESC] = "Собственное сглаживание FXAA. Слегка размывает мелкие детали; с DLAA оно не нужно.",
+    [UI_MENU_FXAA] = "Сглаживание (FXAA)",
+    [UI_MENU_FXAA_DESC] = "Сглаживает зубчатые края 3D-сцены; интерфейс и меню остаются чёткими. Если игра запущена с "
+                          "выключенным, для включения нужен перезапуск.",
 
     [UI_MENU_FPS_LIMIT] = "Ограничение частоты кадров",
     [UI_MENU_FPS_LIMIT_DESC] = "Наибольшее число кадров в секунду. Выше 60 — экспериментальный режим. Бои всегда идут на 60: игра считает их в кадрах.",
@@ -1476,9 +1478,9 @@ static const char *const text_pt_br[UI_TEXT_COUNT] = {
                                 "bordas um pouco menos suaves. Vale na hora.",
     [UI_MENU_DLSS_CHARS_OFF] = "Desligado", [UI_MENU_DLSS_CHARS_LIGHT] = "Leve", [UI_MENU_DLSS_CHARS_MEDIUM] = "Médio",
     [UI_MENU_DLSS_CHARS_FULL] = "Total",
-    [UI_MENU_FXAA] = "Antisserrilhado do jogo (FXAA)",
-    [UI_MENU_FXAA_DESC] = "A suavização de bordas FXAA do próprio jogo. Borra um pouco os detalhes finos; com o DLAA "
-                          "ligado não é necessária.",
+    [UI_MENU_FXAA] = "Antisserrilhado (FXAA)",
+    [UI_MENU_FXAA_DESC] = "Suaviza as bordas serrilhadas da cena 3D; a interface e os menus continuam nítidos. Ligar "
+                          "exige reiniciar se o jogo começou com ele desligado.",
     [UI_MENU_TAB_CHEATS] = "Cheats",
     [UI_MENU_CHEATS_NONE] = "Nenhum cheat para esta versão do jogo. Os cheats de um mod são um arquivo de cheats do "
                             "Atmosphere na pasta cheats dele, com o nome da build do jogo: mods\\<mod>\\cheats\\%s. "
@@ -2084,8 +2086,8 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
                                 "这些边缘也略欠平滑。立即生效。",
     [UI_MENU_DLSS_CHARS_OFF] = "关", [UI_MENU_DLSS_CHARS_LIGHT] = "弱", [UI_MENU_DLSS_CHARS_MEDIUM] = "中",
     [UI_MENU_DLSS_CHARS_FULL] = "强",
-    [UI_MENU_FXAA] = "游戏抗锯齿（FXAA）",
-    [UI_MENU_FXAA_DESC] = "游戏自身的 FXAA 边缘平滑。会让细节略微模糊；开启 DLAA 时不需要。",
+    [UI_MENU_FXAA] = "抗锯齿（FXAA）",
+    [UI_MENU_FXAA_DESC] = "平滑 3D 场景中的锯齿边缘；界面和菜单保持清晰。若游戏启动时为关闭状态，开启需要重启。",
     [UI_MENU_TAB_CHEATS] = "金手指",
     [UI_MENU_CHEATS_NONE] = "此游戏版本没有金手指。模组的金手指是它的 cheats 文件夹中以游戏构建命名的 Atmosphere "
                             "金手指文件：mods\\<模组>\\cheats\\%s。重启游戏后才会读取。对于修改游戏代码的金手指，"

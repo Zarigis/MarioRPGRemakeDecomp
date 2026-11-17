@@ -278,6 +278,8 @@ uint64_t vk_exec_xfer_written(const VkExec *ex, uint32_t op, const void *payload
 // vk_contact_plan is what they do in replay order (pass: the first; else the second), for the scan; 1: a march is due (j).
 void vk_contact_pass_begin(VkExec *ex);
 void vk_contact_flush(VkExec *ex);
+// vk_fxaa.c: a pass about to begin; smooths the finished scene before the first pass that draws elsewhere.
+void vk_fxaa_pass_begin(VkExec *ex);
 int vk_contact_plan(const VkExec *ex, int pass, VkExecJob *j);
 void vk_contact_exec(VkExec *ex, const VkExecJob *j);
 // vk_exec_xfer.c, samples-passed counting: a draw about to be recorded in the open pass (begins an occlusion query

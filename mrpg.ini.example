@@ -284,8 +284,8 @@
 # frame before, DLSS is told to favour the current frame by this percentage (0, 35, 65 or 100; 0 off). Higher removes
 # more of the trails and leaves those edges a little less smooth. Changes while the game runs take effect at once.
 # dlss_char_mask = 65
-# The game's own FXAA after the post effects; with DLAA on it is not needed. Changes while the game runs take effect at
-# once.
+# FXAA: smooths jagged edges in the 3D scene before the HUD and menus are drawn, so those stay sharp. Switching it off
+# takes effect at once; switching it on while the game runs works only when the game started with it on.
 # fxaa = 1
 
 # HDR output: hdr = 1 sends the picture as HDR10 (needs HDR on in Windows, "Use HDR", or a Wayland compositor with

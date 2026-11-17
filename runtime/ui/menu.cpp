@@ -637,6 +637,7 @@ static void tab_screen(float scale) {
         static const char *const names[] = {"1x", "2x", "3x", "4x"};
         opt_choice_list("MRPG_SHADOW_MAP_SCALE", UI_MENU_SHADOW_SCALE, vals, names, 4, UI_MENU_SHADOW_SCALE_DESC);
     }
+    opt_toggle("MRPG_FXAA", UI_MENU_FXAA, UI_MENU_FXAA_DESC);   // vk_fxaa.c
     static const UiTextId up[] = {UI_MENU_UPSCALER_FSR, UI_MENU_UPSCALER_BILINEAR};
     opt_choice("MRPG_UPSCALER", UI_MENU_UPSCALER, up, 2, UI_MENU_UPSCALER_DESC);
     opt_slider("MRPG_SHARPNESS", UI_MENU_SHARPNESS, 0, 100, UI_MENU_SHARPNESS_DESC, 5, "%.0f %%");
