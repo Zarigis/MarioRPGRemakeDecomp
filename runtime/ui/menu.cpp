@@ -499,10 +499,12 @@ static void row_window_size(void) {
 }
 
 // The game resolution (resolution.c): 16:9 sizes from 1280x720 (for weak GPUs) up, and the current value when it is
-// another size. Other shapes are not offered: resolution.c draws them as 16:9 with bars until the Unity player's
+// another size. The sizes above 3840x2160 are for anti-aliasing: a picture larger than the window is scaled down
+// on the present (supersampling; the game has no anti-aliasing of its own). Other shapes are not offered: resolution.c draws them as 16:9 with bars until the Unity player's
 // handling of another aspect ratio has been tried.
 static void row_output_res(void) {
-    static const char *const vals[] = {"1280x720", "1600x900", "1920x1080", "2560x1440", "3200x1800", "3840x2160"};
+    static const char *const vals[] = {"1280x720", "1600x900", "1920x1080", "2560x1440", "3200x1800", "3840x2160",
+                                       "5120x2880", "5760x3240", "7680x4320"};
     enum { N = sizeof vals / sizeof *vals };
     char shown[N][32];
     const char *names[N];

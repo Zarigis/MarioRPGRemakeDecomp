@@ -63,7 +63,7 @@ static const char *const text_en[UI_TEXT_COUNT] = {
     [UI_PERF_LINE_FPS] = "%.0f fps",
     [UI_MENU_GRAPHICS] = "Picture",
     [UI_MENU_OUTPUT_RES] = "Game resolution",
-    [UI_MENU_OUTPUT_RES_DESC] = "The size the game draws its picture and interface in. Above 1920 x 1080 the game needs more video memory and GPU time.",
+    [UI_MENU_OUTPUT_RES_DESC] = "The size the game draws its picture and interface in. Above 1920 x 1080 the game needs more video memory and GPU time. A size above your screen's is scaled down to it, which smooths jagged edges (anti-aliasing by supersampling): twice the screen's size gives the best result.",
     [UI_MENU_RENDER_SCALE] = "3D render scale",
     [UI_MENU_RENDER_SCALE_DESC] = "Size of the 3D scene relative to the game resolution; the game's FSR scales it to "
                                   "that size. Above 100 % smooths jagged edges (supersampling) at a high GPU cost.",
@@ -541,7 +541,7 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
     [UI_PERF_LINE_FPS] = "%.0f к/с",
     [UI_MENU_GRAPHICS] = "Изображение",
     [UI_MENU_OUTPUT_RES] = "Разрешение игры",
-    [UI_MENU_OUTPUT_RES_DESC] = "Размер, в котором игра рисует картинку и интерфейс. Выше 1920 × 1080 игре нужно больше видеопамяти и времени GPU.",
+    [UI_MENU_OUTPUT_RES_DESC] = "Размер, в котором игра рисует картинку и интерфейс. Выше 1920 × 1080 игре нужно больше видеопамяти и времени GPU. Размер больше экрана уменьшается до него, что сглаживает лесенки на краях (сглаживание суперсэмплингом): лучший результат даёт удвоенный размер экрана.",
     [UI_MENU_RENDER_SCALE] = "Масштаб 3D-отрисовки",
     [UI_MENU_RENDER_SCALE_DESC] = "Размер 3D-сцены относительно разрешения игры; FSR игры доводит её до этого размера. "
                                   "Выше 100 % сглаживает лесенки на краях (суперсэмплинг) ценой большой нагрузки на GPU.",
@@ -1057,7 +1057,7 @@ static const char *const text_pt_br[UI_TEXT_COUNT] = {
     [UI_PERF_LINE_FPS] = "%.0f fps",
     [UI_MENU_GRAPHICS] = "Imagem",
     [UI_MENU_OUTPUT_RES] = "Resolução do jogo",
-    [UI_MENU_OUTPUT_RES_DESC] = "O tamanho em que o jogo desenha a imagem e a interface. Acima de 1920 x 1080 o jogo precisa de mais memória de vídeo e tempo de GPU.",
+    [UI_MENU_OUTPUT_RES_DESC] = "O tamanho em que o jogo desenha a imagem e a interface. Acima de 1920 x 1080 o jogo precisa de mais memória de vídeo e tempo de GPU. Um tamanho maior que o da tela é reduzido até ela, o que suaviza bordas serrilhadas (anti-aliasing por supersampling): o dobro do tamanho da tela dá o melhor resultado.",
     [UI_MENU_RENDER_SCALE] = "Escala da renderização 3D",
     [UI_MENU_RENDER_SCALE_DESC] = "Tamanho da cena 3D em relação à resolução do jogo; o FSR do jogo a amplia até esse "
                                   "tamanho. Acima de 100 % suaviza bordas serrilhadas (supersampling) com alto custo de "
@@ -1581,7 +1581,7 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
 
     [UI_MENU_GRAPHICS] = "画面",
     [UI_MENU_OUTPUT_RES] = "游戏分辨率",
-    [UI_MENU_OUTPUT_RES_DESC] = "游戏绘制画面和界面的尺寸。高于 1920 x 1080 会占用更多显存和 GPU 时间。",
+    [UI_MENU_OUTPUT_RES_DESC] = "游戏绘制画面和界面的尺寸。高于 1920 x 1080 会占用更多显存和 GPU 时间。大于屏幕的尺寸会被缩小到屏幕大小，从而平滑锯齿边缘（超采样抗锯齿）：屏幕尺寸的两倍效果最好。",
     [UI_MENU_RENDER_SCALE] = "3D 渲染比例",
     [UI_MENU_RENDER_SCALE_DESC] = "3D 场景相对于游戏分辨率的尺寸；"
                                   "游戏的 FSR 会将其缩放到该尺寸。"
