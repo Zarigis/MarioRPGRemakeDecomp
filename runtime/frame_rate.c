@@ -25,7 +25,9 @@
 // MiniGameController.ProcessScriptCommand (main+0x20abf90) stores the running game in the controller's static
 // Instance when one starts and stores null there when it ends; UpdateController (main+0x20ac630) reads it through
 // the pointer at main+0x3a648a8: class, static fields at +0xb8, Instance at +0. A mini game that steps by elapsed
-// time loses nothing but frames by this.
+// time loses nothing but frames by this, but is left at the limit when known (TIMED_MINI_GAMES): Melody Bay, the
+// tadpole music game at Tadpole Pond, steps by a float timer (MelodyBay.Manager._timer); its Instance stayed set for
+// minutes at a time, and the game was held to 60 Hz all that while.
 // Other frame-counted code may exist elsewhere; it has to be found by playing.
 //
 // The game clock (frame_step_ticks) advances by the pacer's nominal period per present, not by
@@ -113,19 +115,56 @@ static uint64_t class_statics(uint64_t ref) {
                ? statics : 0;
 }
 
+// Mini games that step by elapsed time: not held to 60 Hz. Matched by class name (Il2CppClass.name at +0x10).
+static const char *const TIMED_MINI_GAMES[] = {"MiniGameMelodyBay"};
+
+// The class name of IL2CPP object obj into name ("?" when unreadable).
+static void class_name(uint64_t obj, char *name, size_t n) {
+    uint64_t klass = 0, np = 0;
+    strcpy(name, "?");
+    if (plat_mem_read(obj, &klass, 8) && klass > 0x10000 && plat_mem_read(klass + 0x10, &np, 8) && np > 0x10000 &&
+        plat_mem_read(np, name, n - 1))
+        name[n - 1] = 0;
+}
+
+// Whether mini game object game is held to 60 Hz; the answer is kept per class.
+static int mini_counts_frames(uint64_t game, char *name, size_t n) {
+    static uint64_t last_klass;
+    static int last;
+    uint64_t klass = 0;
+    plat_mem_read(game, &klass, 8);
+    class_name(game, name, n);
+    if (klass && klass == last_klass) return last;
+    last_klass = klass, last = 1;
+    for (size_t i = 0; i < sizeof TIMED_MINI_GAMES / sizeof *TIMED_MINI_GAMES; i++)
+        if (!strcmp(name, TIMED_MINI_GAMES[i])) last = 0;
+    return last;
+}
+
 static void locked_read(void) {
     uint64_t bm = class_statics(0x3a57e48), mg = class_statics(0x3a648a8), inst = 0, game = 0;
     int32_t rate = 0;
     int battle = bm && plat_mem_read(bm + 0x10, &inst, 8) && inst > 0x10000 && !(inst & 7) &&
                  plat_mem_read(inst + 0x1c8, &rate, 4) && (rate == 30 || rate == 60);
     int mini = mg && plat_mem_read(mg, &game, 8) && game > 0x10000 && !(game & 7);
-    int on = battle ? 1 : mini ? 2 : 0;
+    static uint64_t last_game;
+    static int last_mini;
+    char name[64] = "?";
+    if (mini && game != last_game) {   // a new mini game: is it counted in frames?
+        last_game = game, last_mini = mini_counts_frames(game, name, sizeof name);
+        if (!last_mini && frame_step_cap_ns() != VBLANK_NS)
+            rt_log("frame rate: mini game %s steps by time: stays at the frame limit", name);
+    }
+    if (!mini) last_game = 0;
+    int on = battle ? 1 : mini && last_mini ? 2 : 0;
     if (on != atomic_load_explicit(&locked, memory_order_relaxed)) {
         atomic_store_explicit(&locked, on, memory_order_relaxed);
-        if (frame_step_cap_ns() != VBLANK_NS)
-            rt_log("frame rate: %s", on == 1 ? "a battle (the game asks for a fixed rate): 60 Hz ticks until it ends"
-                                   : on == 2 ? "a mini game or the world map (counted in frames): 60 Hz ticks until it ends"
-                                             : "the fixed-rate scene ended: back to the frame limit");
+        if (on == 2) class_name(game, name, sizeof name);
+        if (frame_step_cap_ns() != VBLANK_NS) {
+            if (on == 2) rt_log("frame rate: mini game %s (counted in frames): 60 Hz ticks until it ends", name);
+            else rt_log("frame rate: %s", on == 1 ? "a battle (the game asks for a fixed rate): 60 Hz ticks until it ends"
+                                                  : "the fixed-rate scene ended: back to the frame limit");
+        }
     }
 }
 
