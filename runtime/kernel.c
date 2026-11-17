@@ -104,6 +104,8 @@ struct RtThread {
     uint64_t dg_pc, dg_lr;     // as an owner: guest pc and lr at the checkpoint that gave the core up
     int dg_host_kick;          // as an owner: in a host call or SVC at the request
     uint32_t dg_svc;           // the thread's latest SVC (MRPG_CORE_DIAG: what an owner in a host call is in)
+    uint32_t svc_last;         // the thread's latest SVC and when it was made (kern_svc), for the hang report
+    uint64_t svc_at;
     struct DgRel { uint64_t kick, host_end, pc, lr; int host, pre, prio; uint32_t h; } dg_rel;   // as a waiter: the
                                                                                                  // owner that released
 };
@@ -121,6 +123,7 @@ static uint64_t g_main_stack;
 static PlatCond g_susp_cv;
 static int g_susp_cv_ready;
 
+static void hang_watch_start(void);   // the hang watchdog, below
 static void lock(void) { plat_mutex_lock(&G); }
 static void unlock(void) { plat_mutex_unlock(&G); }
 
@@ -1638,6 +1641,7 @@ uint32_t kern_main_thread(Cpu **cpu) {
     unlock();
     tcur = t;
     *cpu = t->cpu;
+    hang_watch_start();
     return t->handle;
 }
 
@@ -1748,6 +1752,7 @@ static void cv_hook(void) {
 int kern_svc(Cpu *c, uint32_t imm) {
     uint64_t *x = c->x;
     if (g_diag > 0 && tcur) tcur->dg_svc = imm;
+    if (tcur) tcur->svc_last = imm, tcur->svc_at = kern_now_ns();
     switch (imm) {
     case 0x08: {   // CreateThread(-> w1 handle; x1 entry, x2 arg, x3 stack top, w4 priority, w5 core)
         int prio = (int)x[4], core = (int)x[5];
@@ -2465,3 +2470,93 @@ HOST_OVERRIDE(KERN_SYM_INITIALIZE_FIBER, kern_fiber_initialize);
 HOST_OVERRIDE(KERN_SYM_FINALIZE_FIBER, kern_fiber_finalize);
 HOST_OVERRIDE(KERN_SYM_SWITCH_TO_FIBER, kern_fiber_switch);
 HOST_OVERRIDE(KERN_SYM_GET_CURRENT_FIBER, kern_fiber_current);
+
+// ---- the hang report (MRPG_HANG_SECONDS, default 10; 0 off)
+// A hang that comes and goes (seen while loading: the game stops presenting, the log goes quiet, the next try works)
+// cannot be looked at afterwards. A watchdog thread checks the present count every second; when it has not moved for
+// MRPG_HANG_SECONDS while the guest is not frozen (the control port's pause) and the window is not minimised, it writes
+// one report to the log: every guest thread, what it waits on and since when, its latest SVC, the host code it runs
+// (a thread holding a core: sampled, and named as the lifted function it is in) and its guest call chain from the frame
+// pointers. Another report follows only after presents resume. The list is copied holding G and written after it is
+// released, so the report cannot wait on a lock a stuck thread holds while it holds G itself.
+#include "gfx_wsys.h"
+#include "nvn_api.h"
+
+typedef struct {
+    uint32_t handle, waker, svc;
+    uint64_t id, waddr, wkey, wobj, svc_at;
+    int prio, core, cur_core, wkind, suspended, started, is_main, sampled, depth;
+    uint64_t rip;
+    const Cpu *cpu;
+} HangThr;
+
+static const char *wkind_name(int k) {
+    return k == W_NONE ? "none" : k == W_LOCK ? "lock" : k == W_CONDVAR ? "condvar" : k == W_ADDRESS ? "address" :
+           k == W_SYNC ? "sync" : "?";
+}
+
+void kern_hang_report(uint64_t stalled_ns) {
+    enum { MAX_THR = 96 };
+    static HangThr th[MAX_THR];
+    int n = 0;
+    uint64_t now = kern_now_ns();
+    lock();
+    for (RtThread *t = g_all; t && n < MAX_THR; t = t->all) {
+        if (t->exited) continue;
+        HangThr *h = &th[n++];
+        *h = (HangThr){.handle = t->handle, .waker = t->waker, .svc = t->svc_last, .id = t->id, .waddr = t->waddr,
+                       .wkey = t->wkey, .wobj = t->wobj, .svc_at = t->svc_at, .prio = t->prio, .core = t->core,
+                       .cur_core = t->cur_core, .wkind = t->wkind, .suspended = t->suspended, .started = t->started,
+                       .is_main = t->is_main, .cpu = t->cur ? t->cur : t->cpu,
+                       .depth = __atomic_load_n(&t->host_depth, __ATOMIC_RELAXED)};
+        uint64_t rsp;
+        if (t->cur_core >= 0 && t->hthr && plat_intr_stop(t->hthr, &h->rip, &rsp)) {
+            plat_intr_resume(t->hthr, 0);
+            h->sampled = 1;
+        }
+    }
+    unlock();
+    rt_log("hang: no present for %.1f s (frame %llu); %d guest threads:", stalled_ns / 1e9,
+           (unsigned long long)__atomic_load_n(&gfx_counters.frames, __ATOMIC_RELAXED), n);
+    for (int i = 0; i < n; i++) {
+        HangThr *h = &th[i];
+        char host[200] = "-";
+        if (h->sampled) rt_host_describe((uintptr_t)h->rip, host, sizeof host);
+        rt_log("hang: thread %#x id %llu%s prio %d core %d%s%s: %s, wait %s on %#llx (key %#llx, object %#llx), last "
+               "woken by %#x; last SVC %#x %.1f s ago; host calls %d; runs %s",
+               h->handle, (unsigned long long)h->id, h->is_main ? " (main)" : "", h->prio, h->core,
+               h->suspended ? " suspended" : "", h->started ? "" : " not started",
+               h->cur_core >= 0 ? "holds a core" : "blocked", wkind_name(h->wkind), (unsigned long long)h->waddr,
+               (unsigned long long)h->wkey, (unsigned long long)h->wobj, h->waker, h->svc,
+               h->svc_at ? (now - h->svc_at) / 1e9 : -1.0, h->depth, host);
+        if (h->cpu) kern_backtrace(h->cpu);
+    }
+    rt_log("hang: end of report");
+}
+
+static void hang_watch(void *arg) {
+    uint64_t limit = (uint64_t)(uintptr_t)arg * 1000000000ull;
+    uint64_t last = 0, since = kern_now_ns();
+    int reported = 0;
+    for (;;) {
+        plat_sleep_ms(1000);
+        uint64_t f = __atomic_load_n(&gfx_counters.frames, __ATOMIC_RELAXED), now = kern_now_ns();
+        int quiet = __atomic_load_n(&g_frozen_at, __ATOMIC_ACQUIRE) || wsys_minimized();
+        if (f != last || quiet) {   // presenting, or paused or minimised on purpose: the clock starts again
+            if (f != last) reported = 0;   // a report again only after presents resumed
+            last = f, since = now;
+            continue;
+        }
+        if (!reported && f && now - since >= limit) {
+            reported = 1;
+            kern_hang_report(now - since);
+        }
+    }
+}
+
+static void hang_watch_start(void) {
+    int s = cfg_int("MRPG_HANG_SECONDS");
+    if (s <= 0) return;
+    if (!plat_thread_spawn(hang_watch, (void *)(uintptr_t)s, "hang watch", 0))
+        rt_log("hang: the watchdog thread could not start");
+}

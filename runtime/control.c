@@ -10,6 +10,7 @@
 //                                 sticks (-32767..32767, up is +y) for <frames> presents, then freezes the guest again.
 //                                 Answers when the turn ended or after the timeout; the turn goes on either way
 //   wait <timeout ms>             answers when the guest is paused, or after the timeout
+//   hang                          writes the hang report (every guest thread's state and call chain) to the log
 //   pshot [+<n>] <path>           writes the next present's swapchain image (as shown; HDR as sRGB) as a PNG; +n: the
 //                                 one after n more presents, to catch a frame while the game runs at full speed
 //   shot <w> <h> <path>           writes the frame kept at the last pause as a PNG of w x h; while the guest runs, the
@@ -49,6 +50,7 @@ typedef int sock_t;
 #include "fs.h"
 #include "gfx.h"
 #include "host.h"
+#include "kernel.h"
 #include "nvn_api.h"
 #include "platform/platform.h"
 #include "vk.h"
@@ -341,6 +343,9 @@ static void command(char *line, char *out, size_t cap) {
         if (!ok) fail(out, cap, "poke <addr hex> <hex bytes, up to 1024>");
         else if (!accessible(a, n / 2, 1)) fail(out, cap, "that memory is not writable");
         else memcpy((void *)(uintptr_t)a, b, n / 2), status(out, cap, NULL);
+    } else if (!strcmp(cmd, "hang")) {   // the hang report (kernel.c kern_hang_report) now, into the log
+        kern_hang_report(0);
+        status(out, cap, NULL);
     } else if (!strcmp(cmd, "quit")) {
         rt_log("control: quit");
         fs_save_flush();

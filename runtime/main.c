@@ -224,6 +224,23 @@ static uint64_t lifted_function_at(uintptr_t rip, uintptr_t *host) {
 
 static uint64_t lifted_function(uintptr_t rip) { return lifted_function_at(rip, NULL); }
 
+// A host code address in words: the lifted function it is in (its guest address described, plus the host offset into
+// it), else the module and offset (kernel.c kern_hang_report).
+const char *rt_host_describe(uintptr_t rip, char *buf, int n) {
+    uintptr_t start = 0;
+    uint64_t g = lifted_function_at(rip, &start);
+    if (g) {
+        char d[160];
+        snprintf(buf, (size_t)n, "lifted %s, host +%#llx", ldr_describe(g, d, sizeof d), (unsigned long long)(rip - start));
+        return buf;
+    }
+    char mn[160] = "?";
+    uintptr_t base = 0;
+    plat_module_of(rip, mn, sizeof mn, &base);
+    snprintf(buf, (size_t)n, "host %s+%#llx", mn, (unsigned long long)(rip - base));
+    return buf;
+}
+
 static int readable(uint64_t a, uint64_t n) { return plat_mem_readable(a, n); }
 
 // The machine code around the faulting instruction: 32 bytes before rip, then 32 from rip. The user's mrpg.exe is built

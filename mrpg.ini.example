@@ -469,6 +469,9 @@
 # cheat_0123abcd = 1
 
 [diagnostics]
+# Hang report: when the game has presented nothing for this many seconds (not paused, not minimised), the log gets
+# every game thread's state and call chain, once per stall, between lines starting "hang:". 0 turns it off.
+# hang_seconds = 10
 # Extra lines in the log, comma separated: svc, host, ipc, fs, gfx, perf, sched, audio, present or all. The menu's
 # Performance log sets perf (frame timings). Default: none.
 # trace = perf
