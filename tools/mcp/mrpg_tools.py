@@ -374,6 +374,20 @@ def game_turn(a):
     return out
 
 
+# From the start of the process to the field of the autosave: the logos end by frame 300 (a press there opens the Load
+# screen in place of the two-minute attract movie), the cursor starts on the autosave, and "Start from this save
+# data?" starts on Yes. Measured at 60 frames a second on 1.0.1: the field shows from frame 720. The frame counts
+# scale with the frame limit.
+def game_load_autosave(a):
+    st = command('status')
+    if st.get('frame', 0) > 300:
+        raise ToolError(f"the game is at frame {st.get('frame')}: this only works right after game_start, before frame 300")
+    k = max(1, round(float(a.get('fps', 60)) / 60))
+    press, gap = {'frames': 4 * k, 'buttons': ['A']}, {'frames': 116 * k}
+    steps = [{'frames': (300 - st.get('frame', 0)) * k}, press, gap, press, gap, press, {'frames': 300 * k}]
+    return game_turn({'steps': steps, 'timeout_s': 90, 'width': a.get('width', 640)})
+
+
 def game_record(a):
     every = int(a.get('every', 1))
     if not every:
@@ -601,6 +615,11 @@ TOOLS = [
     tool('game_pause', 'Freeze the game after its next frame: all game threads and the game clock stop. Returns that frame.',
          {'screenshot': {'type': 'boolean'}, 'width': WIDTH}),
     tool('game_resume', 'Let a paused game run freely; ends a turn in progress.'),
+    tool('game_load_autosave', 'Right after game_start: skip the logos and the attract movie and load the autosave (the '
+         'first entry of the Load screen), then pause on the field about 12 seconds in. Returns the frame; check it '
+         'shows the field.', {
+             'fps': {'type': 'number', 'description': 'The frame limit the game was started with (default 60).'},
+             'width': WIDTH}),
     tool('game_turn', 'From any state: play the steps in order, each holding its buttons and sticks for a number of '
          'frames, then pause again. Returns the last frame, and with record_every the frames in between as contact sheets.', {
              'steps': {'type': 'array', 'items': STEP, 'description': 'At most 256. A step without input just waits.'},

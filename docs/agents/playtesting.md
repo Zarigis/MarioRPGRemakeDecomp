@@ -15,6 +15,9 @@ this port: trust the prompts on screen over this page, and report a hint that tu
 - When a turn's last frame does not explain what happened, repeat with `record_every` (10 for a few seconds, 1 or 2 for
   a suspected glitch) instead of guessing.
 - Pass your `instance` name on every call.
+- To continue from the autosave, call `game_load_autosave` right after `game_start` (started with `paused: true`): it
+  skips the logos and the two-minute attract movie and pauses on the field about 14 seconds in. Do not wait for the
+  title screen yourself. For a numbered slot, press A once at frame 300 and pick the slot on the Load screen.
 
 ## Buttons
 
@@ -24,7 +27,7 @@ The prompts in the corner of the screen name the buttons for the current situati
 |---|---|---|
 | Field | left stick, d-pad | walk; the view is isometric, so stick up moves Mario up the screen, which is a diagonal of the room |
 | Field | A | talk, examine, confirm |
-| Field | B | jump: onto ledges, into floating treasure boxes and save blocks from below *(unverified)* |
+| Field | B | jump: onto ledges and save blocks, into floating treasure boxes from below |
 | Field | X | items |
 | Field | Y | special moves (those usable outside battle) |
 | Field | Plus | main menu: party, equipment, items, journal, options |
@@ -56,8 +59,11 @@ The prompts in the corner of the screen name the buttons for the current situati
 ## Field
 
 - **Enemies are visible** on the field; touching one starts the battle. They can be walked around.
-- **Save blocks** (a floating block with an S) are used by jumping into them from below. The game also autosaves on
-  entering most rooms; the title screen then offers the autosave and the save slots.
+- **Save blocks** (a block with an S) are used by jumping ONTO them: Mario has to land on top of the block, and the
+  save menu opens when he does. Hitting one from below or from the side only bumps it. Stand beside the block, or on
+  higher ground next to it, and jump towards it so that he comes down on its top; hold the stick towards the block
+  during the jump. The game also autosaves on entering most rooms; the title screen then offers the autosave and the
+  save slots.
 - **Treasure boxes** float; jump into them from below. Some are invisible.
 - **Doors and exits** are entered by walking into them. An exit at the lower edges of a room is often outside the
   picture: walk along the room's edge to find it.
@@ -127,7 +133,8 @@ here but in your notes.
 - **seen** Mallow's basic attack timed, scripted from the command ring: A (Attack), wait 30, A (confirm target), wait 34, A (3 frames) gave "Excellent" with splash damage. Mario's attack: A, wait 20, A, wait 35, A gave Excellent and a Chain.
 - **seen** Mallow's Thunderbolt from the ring: Y, wait 40, A (select), wait 30, A (confirm, all enemies), wait 215, A. The bolts end about 230 frames after the confirm; the "!" shows over Mallow near the end. It hits every enemy; Frogog is weak to it (50 damage at LV2).
 - **seen** In battle the target cursor moves to an ally with DOWN (for items such as Mushroom or Pick Me Up).
-- **seen** The battle action gauge (bottom left) only rises on Excellent timed hits, perfect blocks and chains; plain "Good" hits leave it unchanged.
+- **seen** MINUS in battle starts the Gauge Move when the gauge (bottom left) is at 100%: with Mario and Mallow it is Toad Assist; Toad runs in with an item roulette that A stops.
+- **seen** Mario's Fireball (learned at LV3): from the ring Y, wait 30, DOWN, wait 15, A, wait 20, A (target), wait 30, then A for 3 frames every 6 frames about 30 times. Gave "Perfect!" each time.- **seen** The battle action gauge (bottom left) only rises on Excellent timed hits, perfect blocks and chains; plain "Good" hits leave it unchanged.
 - **seen** The `game_heal` cheat works during a battle for the members fighting (the HUD follows within a few frames); `game_party` then shows the battle's own hit points on an extra line. It does not revive a fallen member.
 
 ### Places, puzzles and bosses
@@ -144,6 +151,10 @@ here but in your notes.
 - **seen** Mallow joins after you leave the castle and talk to him by the item shop. Then Toad gives the map near the town's lower-right exit and the world map shows Bandit's Way below the Mushroom Kingdom.
 - **seen** Bandit's Way room 1: the exit to room 2 is down-right ([0.7,-0.7]) past the second battle spot. Room 2 (round rock, palm tree, pink flower): the way on is the flower. Stand on it (it carries Mario round as it spins), wait until it has turned him to face the cliff, then press B: the jump lands on top. Jumping at the rock from the ground or pressing A beside the flower does nothing. Step a few frames per turn to catch the facing. (Shown by the developer playing by hand.)
 - **seen** System > To World Map works in town (not in the Mario's Pad yard).
+- **seen** Correction to the inn line above: the Mushroom Kingdom inn save block is on the GROUND floor, in the corner right of the stairs (not in the upper room), and it does work. Mario keeps his sideways speed in the air and the stick steers him while he rises, so a long stick press carries him over the block and a short one drops him behind it. What worked: walk left into the gap between the stairs and the block ([-1, 0] until stopped), then B with [1, 0] for 4 frames, B alone for 8 frames, B with [-1, 0] for 5 frames, release. Mario lands on top, bounces high and the Save screen opens about 45 frames later. Slot dates show the real date and time.
+- **seen** Bandit's Way after room 2: the room with yellow blocks and K9 dogs, then a room with a "?" box and the exit down-right; the last room has Croco. Croco runs off when touched and the chase repeats 4 times in that room (a short scene each time); touch him while he faces away. Each scene and Croco's battle speech bubbles ("Yeouch!", "Ouuuch!") wait for an A press.
+- **seen** Croco (boss): weak to fire. At LV3 Mario's Fireball (Y, DOWN to Fireball, A, A on Croco, then press A every 6 frames for about 4 seconds) did 20 to 30 per cast with "Perfect!". His bombs knock Mallow out; Pick Me Up from Items (X, DOWN three times) revives. He steals items on some turns. After the win: Mallow's coin back, a Wallet, Flower Tab.
+- **seen** Back in the Mushroom Kingdom after Bandit's Way it is night and Shy Guys on pogo sticks (Shymore) roam the town; touching one starts a battle. The Toad by the path to the castle gives 10 coins after the first one.
 
 ### Working with the tools
 
