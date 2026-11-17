@@ -11,9 +11,16 @@
 // The limit (MRPG_FPS_LIMIT, live): 30 to 240 per second, or "display" for the refresh rate of the window's monitor.
 // The vsync event stays at 60 Hz whatever the limit (gfx_vsync_bind): the player does not wait for it each frame.
 //
-// What a higher rate does not change: animation and movement that the game steps by elapsed time. What it can change:
-// anything the game's scripts count in frames. That has to be found by playing; a per-frame counter found to run fast
-// gets a patch set (recomp/patches-v101.txt), as the TotK code base did for its fades.
+// What a higher rate does not change: animation and movement that the game steps by elapsed time. What it does change
+// is anything the game counts in frames, and battles are that: at a limit of 120 a battle ran at twice its speed. The
+// game says so itself. Battle.BattleManager.set_frame_rate (main+0x1cd0500, version 1.0.1) is called with 60 or 30,
+// keeps the number in the manager's _frame_rate (+0x1c8) and sets Unity's vSyncCount to 1 or 2: so many 60 Hz vblanks
+// per frame; reset_frame_rate (main+0x1cd0580) puts 0 back. While that field is not 0 the pacer's tick is the
+// console's 1/60 s whatever the limit (frame_step_tick_ns), so frame-counted scenes keep their speed and the limit
+// applies to the rest of the game. The field is read from the game's memory at each present (locked_read): the
+// manager's class through the pointer at main+0x3a57e48 (as its get_instance does, main+0x1cd11c0), the class's
+// static fields at +0xb8, the instance at +0x10 of those.
+// Other frame-counted code may exist outside battles; it has to be found by playing.
 //
 // The game clock (frame_step_ticks) advances by the pacer's nominal period per present, not by
 // the measured time: at the default limit of 60 a present is exactly one tick, so recorded input replays on the same
@@ -26,6 +33,7 @@
 #include "cfg.h"
 #include "gfx.h"
 #include "host.h"
+#include "layout.h"
 #include "platform/platform.h"
 
 #define LIMIT_MIN_HZ 30
@@ -68,8 +76,8 @@ void frame_step_init(void) { frame_limit_live(); }
 // No patched frame step in this game (the TotK code base's real-time step): callers that ask take the plain path.
 int frame_step_realtime(void) { return 0; }
 
-// One pacer tick in ns: a frame with present interval 1 lasts this long.
-uint64_t frame_step_cap_ns(void) {
+// The frame limit's period in ns.
+static uint64_t frame_step_cap_ns(void) {
     frame_limit_live();
     double hz = limit_hz ? limit_hz : gfx_window_refresh_hz();
     if (hz < LIMIT_MIN_HZ) hz = 60;   // display rate unknown (no window yet)
@@ -84,6 +92,30 @@ double frame_step_limit_hz(void) {
     double r = hz ? hz : gfx_window_refresh_hz();
     if (r < LIMIT_MIN_HZ) r = 60;
     return r > LIMIT_MAX_HZ ? LIMIT_MAX_HZ : r;
+}
+
+// ---- scenes the game runs at a fixed rate (the comment at the top)
+#define VBLANK_NS 16666667ull
+static _Atomic int locked;
+
+static void locked_read(void) {
+    uint64_t slot = 0, klass = 0, statics = 0, inst = 0;
+    int32_t rate = 0;
+    int on = plat_mem_read(MOD_MAIN_BASE + 0x3a57e48, &slot, 8) && slot && !(slot & 7) && plat_mem_read(slot, &klass, 8) &&
+             klass > 0x10000 && !(klass & 7) && plat_mem_read(klass + 0xb8, &statics, 8) && statics > 0x10000 &&
+             !(statics & 7) && plat_mem_read(statics + 0x10, &inst, 8) && inst > 0x10000 && !(inst & 7) &&
+             plat_mem_read(inst + 0x1c8, &rate, 4) && (rate == 30 || rate == 60);
+    if (on != atomic_load_explicit(&locked, memory_order_relaxed)) {
+        atomic_store_explicit(&locked, on, memory_order_relaxed);
+        if (frame_step_cap_ns() != VBLANK_NS)
+            rt_log("frame rate: %s", on ? "the game asks for a fixed rate (a battle): 60 Hz ticks until it ends"
+                                        : "the fixed-rate scene ended: back to the frame limit");
+    }
+}
+
+// One pacer tick in ns: a frame with present interval 1 lasts this long.
+uint64_t frame_step_tick_ns(void) {
+    return atomic_load_explicit(&locked, memory_order_relaxed) ? VBLANK_NS : frame_step_cap_ns();
 }
 
 // ---- MRPG_TRACE=perf: a line per 120 presents
@@ -115,7 +147,8 @@ int64_t frame_step_world_us(void) { return -1; }
 uint64_t frame_step_ticks(void) { return atomic_load_explicit(&game_ns, memory_order_relaxed) * 60 / 1000000000ull; }
 
 void frame_step_present(uint64_t display_ns, int interval) {
-    uint64_t step = frame_step_cap_ns() * (uint64_t)(interval > 0 ? interval : 1);
+    locked_read();
+    uint64_t step = frame_step_tick_ns() * (uint64_t)(interval > 0 ? interval : 1);
     atomic_store_explicit(&game_ns, atomic_load_explicit(&game_ns, memory_order_relaxed) + step, memory_order_relaxed);
     if (rt_trace & RT_TRACE_PERF) speed_report(display_ns, interval);
 }

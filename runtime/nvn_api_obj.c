@@ -665,7 +665,7 @@ NVN_API(nvnWindowSetCrop) {
 // period (frame_rate.c: MRPG_FPS_LIMIT, 60 by default), which is all a higher frame rate needs: the Unity player steps
 // the game by the time that passed and waits for the display only in the acquire and the present below.
 static uint64_t present_period(const win_t *o) {
-    return (o->interval > 0 ? (uint64_t)o->interval : 1ull) * frame_step_cap_ns();
+    return (o->interval > 0 ? (uint64_t)o->interval : 1ull) * frame_step_tick_ns();
 }
 
 // MacNativeGames nvn_pace.h: the present slot is the previous slot plus one period. Early: wait for the slot. Late by

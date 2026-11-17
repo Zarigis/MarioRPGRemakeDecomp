@@ -175,7 +175,7 @@ static void vsync_main(void *arg) {
     for (;;) {
         // One tick per period of the frame limit (frame_rate.c; 60 Hz by default, as the console's vblank): the Unity
         // player waits for this event once per frame, so a tick fixed at 60 Hz would hold it to 60 fps.
-        due += frame_step_cap_ns();
+        due += frame_step_tick_ns();
         uint64_t now = kern_now_ns();
         if (now > due + 100000000ull) due = now;   // the process stalled: restart the schedule, no catch-up burst
         else if (due > now) plat_wait_ns(due - now);
