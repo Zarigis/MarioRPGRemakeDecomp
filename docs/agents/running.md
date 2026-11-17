@@ -64,6 +64,11 @@ reconnecting. The game it starts logs to `build/mcp/<instance>/game.log` and out
   `poke`. Where that state lives is written down at the top of the cheats in `mrpg_tools.py`, for version 1.0.1, found
   with `tools/il2cpp_meta.py` (names of the game's managed types, fields and methods) and `tools/il2cpp_bin.py` (where
   a method's code is in `main`).
+- **Resolution and frame rate.** Pass them in `game_start`'s `env`: `MRPG_OUTPUT_RES=3840x2160` makes the game render
+  at that size (`runtime/resolution.c`; it needs the code generated with `--patches recomp/patches-v101.txt`), and
+  `MRPG_FPS_LIMIT=120` raises the frame rate (`runtime/frame_rate.c`). A turn's `frames` are presented frames: at a
+  limit of 120 a frame is 1/120 s, so a hold of 4 frames at 60 is 8 there. Play-tests keep the default 60 unless the
+  frame rate is what is being tested.
 - Hints for playing the game through these tools: [playtesting.md](playtesting.md).
 
 ## Observing

@@ -29,8 +29,6 @@
 
 #define FRAMES 2
 #define MAX_IMAGES 16
-#define VSYNC_NS 1000000000ull
-#define VSYNC_HZ 60
 
 // ---- queue lock
 // The recorder queues the parts it records and submits them later (vk_rec.c rec_submit): the first lock of a thread
@@ -173,16 +171,14 @@ static int g_vs_started;
 static void vsync_main(void *arg) {
     (void)arg;
     plat_thread_priority(PLAT_PRIO_HIGHEST);
-    uint64_t n = 0;
+    uint64_t n = 0, due = (uint64_t)g_vs_start_ns;
     for (;;) {
-        uint64_t start = (uint64_t)g_vs_start_ns;
-        uint64_t due = start + (n + 1) * VSYNC_NS / VSYNC_HZ;
+        // One tick per period of the frame limit (frame_rate.c; 60 Hz by default, as the console's vblank): the Unity
+        // player waits for this event once per frame, so a tick fixed at 60 Hz would hold it to 60 fps.
+        due += frame_step_cap_ns();
         uint64_t now = kern_now_ns();
-        if (now > due + 100000000ull) {                  // the process stalled: restart the schedule, no catch-up burst
-            g_vs_start_ns = (int64_t)(now - (n + 1) * VSYNC_NS / VSYNC_HZ);
-        } else if (due > now) {
-            plat_wait_ns(due - now);
-        }
+        if (now > due + 100000000ull) due = now;   // the process stalled: restart the schedule, no catch-up burst
+        else if (due > now) plat_wait_ns(due - now);
         n++;
         plat_xchg64(&g_ticks, (int64_t)n);
         uint64_t ev[16];
@@ -231,7 +227,6 @@ void gfx_vsync_bind_counter(volatile int32_t *counter) {
 }
 
 uint64_t gfx_vsync_ticks(void) { return (uint64_t)plat_cas64(&g_ticks, 0, 0); }
-uint64_t gfx_vsync_time_ns(uint64_t tick) { return (uint64_t)g_vs_start_ns + tick * VSYNC_NS / VSYNC_HZ; }
 
 // ---- focus
 int gfx_window_focused(void) { return g_focused; }

@@ -1,3 +1,11 @@
+// Super Mario RPG: only the output size applies. The Unity player renders scene and UI at one size, 1920x1080 docked,
+// and MRPG_OUTPUT_RES changes it through the patch set output (recomp/patches-v101.txt), which reads the width and
+// height from the patch page at +32 and +36 (res_init). The application pool grows by res_heap_extra_bytes for the
+// larger render targets. Checked at 3840x2160: the window's images, the UI and the scene come out at that size.
+// MRPG_RENDER_SCALE, the shadow, field-of-view, font and DLSS settings and the HeapDef table below belong to the TotK
+// code base this file came from; their patch sets do not exist for this game, so they do nothing. The rest of this
+// comment describes that game.
+//
 // Game resolution: the size the game composes its frame in (its output: canvas, UI and swapchain) and the size of its
 // 3D scene, above the shipped 1920x1080 and 1600x900. The game does the rendering itself, as with the community
 // resolution mods (UltraCam, Visual Fixes): the patch sets output and scene (recomp/patches-v121.txt,
@@ -556,18 +564,13 @@ void res_init(void) {
     capture_init();
     res_shadow_range();
     if (!bigger()) {
-        rt_log("resolution: the game's own (output 1920x1080, scene 1600x900)");
+        rt_log("resolution: the game's own (1920x1080)");
         shadow_init(rt_patch_page());
         return;
     }
     int output = rt_patch_set("output"), scene = rt_patch_set("scene");
     if (output < 0 || scene < 0) {
         rt_log("resolution: the generated C has no output and scene patch sets; the game keeps its own resolution");
-        return;
-    }
-    fs_init();   // romfs.c serves the grown HeapDef from here on (res_heapdef_served)
-    if (res_heap_extra_kib() && !R.heapdef_ok) {   // sizes at or below the shipped ones fit the shipped heaps
-        rt_log("resolution: no grown HeapDef table; the game keeps its own resolution");
         return;
     }
     uint8_t *page = rt_patch_page();
@@ -607,8 +610,7 @@ void res_init(void) {
         rt_patch_switch(aspect, 0);   // the page holds no ratio
     }
     shadow_init(page);
-    rt_log("resolution: output %ux%u, scene %ux%u%s; texture heap +%llu KiB", R.ow, R.oh, R.sw, R.sh,
-           scene_on ? "" : " (the game's own 5/6 of the output)", (unsigned long long)res_heap_extra_kib());
+    rt_log("resolution: output %ux%u; application pool +%llu KiB", R.ow, R.oh, (unsigned long long)res_heap_extra_kib());
 }
 
 // DLSS upscaling: textures are sampled for the output's resolution, not the scene's (NVIDIA's DLSS guide: a mip bias
