@@ -592,6 +592,7 @@ static GfxShader *disk_load_from(const uint8_t key[32], const uint8_t *iid, int 
     s->reflection_size = res_size;
     reflect(s);
     if (s->stage == GFX_STAGE_FS) ui_sharp_shader_swap(&s->spirv, &s->words);   // ui_sharp.c, before any other
+    if (s->stage == GFX_STAGE_FS) sky_ground_shader_swap(&s->spirv, &s->words);   // sky_ground.c
     if (s->stage == GFX_STAGE_FS) vk_hdr_shader_swap(&s->spirv, &s->words);   // the in-memory copy; the cache keeps its own
     return s;
 }

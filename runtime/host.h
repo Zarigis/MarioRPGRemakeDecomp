@@ -324,6 +324,7 @@ void rt_patch_switch(int set, int on);                     // at run time (live 
                                                            // the next time it runs
 void *rt_patch_page(void);                                 // the page the patched code reads (NULL without the table)
 void ui_sharp_shader_swap(uint32_t **spirv, uint64_t *words);   // ui_sharp.c: sharper enlarged UI sprites
+void sky_ground_shader_swap(uint32_t **spirv, uint64_t *words);   // sky_ground.c: the colour around field rooms
 void move_tilt_init(void);                                 // input.c: the walking speed's page words
 void frame_step_init(void);                                // after rt_patches_init: the real-time step's first value
 int frame_step_realtime(void);                             // the real-time step is on: presents ignore the interval
