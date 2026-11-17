@@ -141,6 +141,7 @@ void vk_present_image(VkImage src, VkImageLayout layout, VkFormat fmt, int w, in
 // vk_present_image split in two: vk_present_blit submits the blit and leaves the present waiting, vk_present_flip
 // queues it. The next blit or a swapchain rebuild queues a waiting present first.
 void vk_present_blit(VkImage src, VkImageLayout layout, VkFormat fmt, int w, int h, const int crop[4]);
+void vk_present_shot(const char *path, int skip);   // a later present's swapchain image to a PNG (control.c pshot)
 // FSR 1 on the present (vk_fsr.c): records EASU (+ RCAS) of src's crop rectangle {x, y, w, h} into the rectangle out
 // {x, y, w, h} of dst, a swapchain image in TRANSFER_DST; src is in GENERAL and fmt its format. 0 = nothing recorded
 // (the setting says bilinear, no upscale is needed, or FSR is not available): the caller blits.

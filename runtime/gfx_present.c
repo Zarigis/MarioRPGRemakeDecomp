@@ -522,6 +522,17 @@ int vk_thumbs_read(uint64_t frame, uint8_t *rgba) {
     return ok != 0;
 }
 
+// The control port's pshot (control.c): the next present's swapchain image, as shown (HDR converted to sRGB), goes to
+// a PNG. The game must run a frame for it.
+static char g_pshot[600];
+static int g_pshot_skip;   // presents to let go by first
+void vk_present_shot(const char *path, int skip) {
+    plat_rmutex_lock(&g_pl);
+    snprintf(g_pshot, sizeof g_pshot, "%s", path);
+    g_pshot_skip = skip;
+    plat_rmutex_unlock(&g_pl);
+}
+
 void vk_present_capture(int on) {
     plat_rmutex_lock(&g_pl);
     g_capture = on;
@@ -625,6 +636,9 @@ static void present_image(VkImage src, VkImageLayout layout, VkFormat fmt, int w
                      g_sc_ext.height, cw, ch, g_scaler};
     int overlay = g_sc_view[idx] &&
                   menu_overlay_frame(__atomic_load_n(&gfx_counters.frames, __ATOMIC_RELAXED), &mt, &menu_shot);
+    char pshot[600] = "";
+    if (!menu_shot && g_pshot[0] && g_pshot_skip > 0) g_pshot_skip--;
+    else if (!menu_shot && g_pshot[0]) memcpy(pshot, g_pshot, sizeof pshot), g_pshot[0] = 0, menu_shot = pshot;
     int cap = (g_capture || menu_shot) && ensure_capture_buffer();
     int thumb = g_th_n && ensure_thumbs();
 

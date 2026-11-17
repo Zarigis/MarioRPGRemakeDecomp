@@ -2606,7 +2606,7 @@ static int prepare_draw(VkExec *ex, int prim, int32_t count, int restart) {
     feedback_written(ex, &s);
     bind_vertex_buffers(ex);
     if (vk_dump_armed) vk_dump_draw(ex, &s, p, info);
-    if (vk_hdr_track) vk_hdr_draw(ex, info);
+    if (vk_hdr_track) vk_hdr_draw(ex, info, s.fs);
     vk_exec_oq_draw(ex);
     return 1;
 }
@@ -3594,8 +3594,13 @@ static void op_dispatch_ind(VkExec *ex, const p_dispatch_ind *d) {
 //   recording on several threads at once neither share nor could fill in order. Its fence never matches OV.fence, so
 //   ub_bind, ub_written, ov_at and vk_exec_ub_flush leave its chunks alone.
 
+// Off by default for Super Mario RPG: with it on, the copy that puts the pause menu's offscreen picture on screen read
+// a stale matrix for the first two frames of the Map page at game resolutions above 1920x1080, and the whole menu
+// showed upside down for a frame on each switch to Map (found with the flight recorder: MRPG_UB_OVERLAY=0 gave no
+// such frame over the same switches, MRPG_UB_OVERLAY_OUT=0 alone did not help). The game makes far fewer in-pass updates
+// than TotK's terrain, which this saved barriers for. Why the overlay misses there is not known yet.
 static int ov_on(void) {
-    if (OV.mode < 0) OV.mode = rt_knob("UB_OVERLAY", "1");
+    if (OV.mode < 0) OV.mode = rt_knob("UB_OVERLAY", "0");
     return RT_KNOB_ON(OV.mode);
 }
 

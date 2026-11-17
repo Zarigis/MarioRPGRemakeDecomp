@@ -264,13 +264,36 @@ static int is_float(VkFormat f) {
            f == VK_FORMAT_R32G32B32A32_SFLOAT;
 }
 
-void vk_hdr_draw(VkExec *ex, const VkPipeInfo *info) {
+// Whether fs is the game's copy of its scene into the window image: a plain texel copy (decompiled: one texture read,
+// written out as it is), recognised by the FNV-1a hash of its translated SPIR-V, the hash vk_dump.c names shaders by.
+// Other draws that read one float image of the window's size, such as the menus' map preview, are not the scene: taken
+// for it, their picture showed upside down in the frame's matching pixels. Answers are kept per shader.
+#define COPY_SHADER_HASH 0xb4ca59f90a2d0b27ull
+static int is_scene_copy(const GfxShader *fs) {
+    static struct { const GfxShader *s; int yes; } seen[64];
+    static int n;
+    if (!fs) return 0;
+    for (int i = 0; i < n; i++)
+        if (seen[i].s == fs) return seen[i].yes;
+    uint64_t words = 0, h = 0xcbf29ce484222325ull;
+    const uint8_t *b = (const uint8_t *)gfx_shader_spirv(fs, &words);
+    for (uint64_t i = 0; b && i < words * 4; i++) h = (h ^ b[i]) * 0x100000001b3ull;
+    int yes = h == COPY_SHADER_HASH;
+    if (n < 64) seen[n].s = fs, seen[n].yes = yes, n++;
+    return yes;
+}
+
+void vk_hdr_draw(VkExec *ex, const VkPipeInfo *info, const GfxShader *fs) {
     const VkExecTarget *t = &ex->color[0];
     if (!t->image) return;
     int known = 0;
     for (int i = 0; i < 4; i++)   // unlocked first look: most draws go elsewhere (a stale slot only costs the lock below)
         known |= __atomic_load_n(&recs[i].win, __ATOMIC_RELAXED) == t->image;
     if (!known) return;
+    plat_mutex_lock(&rec_lock);   // is_scene_copy's table; draws of several chunks get here at once
+    int copy = is_scene_copy(fs);
+    plat_mutex_unlock(&rec_lock);
+    if (!copy) return;
     VkImage src = VK_NULL_HANDLE;
     VkFormat fmt = VK_FORMAT_UNDEFINED;
     int ntex = 0, slot = -1;

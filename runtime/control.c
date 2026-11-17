@@ -10,6 +10,8 @@
 //                                 sticks (-32767..32767, up is +y) for <frames> presents, then freezes the guest again.
 //                                 Answers when the turn ended or after the timeout; the turn goes on either way
 //   wait <timeout ms>             answers when the guest is paused, or after the timeout
+//   pshot [+<n>] <path>           writes the next present's swapchain image (as shown; HDR as sRGB) as a PNG; +n: the
+//                                 one after n more presents, to catch a frame while the game runs at full speed
 //   shot <w> <h> <path>           writes the frame kept at the last pause as a PNG of w x h; while the guest runs, the
 //                                 next present's frame instead
 //   record <every> <w> <h> <dir>  from now on every <every>-th present is written to <dir>/f<present>.png at w x h
@@ -278,6 +280,12 @@ static void command(char *line, char *out, size_t cap) {
         sscanf(args, "%lu", &ms);
         int done = wait_paused(ms);
         status(out, cap, done ? ",\"done\":1" : ",\"done\":0");
+    } else if (!strcmp(cmd, "pshot")) {   // the swapchain image as shown, at the next present (run a frame for it)
+        int skip = 0, k = 0;
+        if (sscanf(args, " +%d %n", &skip, &k) == 1) args += k;   // pshot +<n> <path>: let n presents go by first
+        while (*args == ' ') args++;
+        if (!*args) fail(out, cap, "pshot [+<presents to skip>] <path>");
+        else vk_present_shot(args, skip), status(out, cap, NULL);
     } else if (!strcmp(cmd, "shot")) {
         unsigned w = 0, h = 0;
         int k = 0;
