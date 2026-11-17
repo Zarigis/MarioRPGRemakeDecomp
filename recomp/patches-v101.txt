@@ -1,6 +1,6 @@
 # Code patch sets of Super Mario RPG 1.0.1 (recomp/patches.py describes the format; gen.py --patches reads this file).
 # Module offsets are in main. The patch page's words in use: +32 the output width, +36 its height
-# (runtime/resolution.c, res_init).
+# (runtime/resolution.c, res_init); +64..83 the walking speed by stick tilt and the movement dead zone (runtime/input.c, move_tilt).
 
 # Output size. The Unity player's default resolution routine (main+0x6b7204, called at start and when the console
 # mode changes, where it logs "Operation mode changed to console, switching to: %ix%i") stores 1280x720 and then, docked
@@ -34,3 +34,29 @@ site output main 6cb19c 52808702 @page:x2 b9402442    # mov w2, #0x438 -> ldr w2
 # A shader parameter set to (1920, 1080) as two floats (main+0xb7c064): the pair comes from page +32 as one word.
 site output main b7c064 d280f001 @page:x1             # mov x1, #0x780 -> adrp x1, page
 site output main b7c068 f2c08701 f9401021             # movk x1, #0x438, lsl #32 -> ldr x1, [x1, #32]
+
+# Walking speed by stick tilt (runtime/input.c, move_tilt). FieldCharacter.UpdatePlayerDirectionMove (main+0x2195d50)
+# picks the player's speed: the walk speed from the field speed table (+0x30 of the class statics reached through
+# main+0x3a5f070), replaced by the run speed (+0x34) when Button.get_Run (main+0x1b2ad70) says so: with "auto dash"
+# on that is true unless L, R, ZL or ZR is held. The stick's tilt only sets the direction (the game normalises it, and
+# ignores a tilt under 0.4). The three sites let the runtime decide instead: the get_Run result is masked and set from
+# the page (+0x44 mask, +0x48 bits: and, then or; mask all ones and bits 0 leave the game's choice), and the walk and
+# run speeds are scaled by the floats at +0x40 and +0x4c. x8, x9, x10 and s0 are free at these points (each is written
+# before it is read on every path after them). The page's defaults (factor 1, the game's choice) come from move_tilt_init.
+set tilt     MRPG_STICK_SPEED    1
+site tilt main 2195e3c 36000320 @page:x8 2948a909 0a090000 2a0a0000 36000320   # tbz w0 (get_Run) -> w0 = w0 & [page+0x44] | [page+0x48]; tbz
+site tilt main 2195e5c bd40350b bd40350b @page:x8 bd404d00 1e20096b            # ldr s11, run speed -> the same; s11 *= [page+0x4c]
+site tilt main 2195ea0 528000b4 528000b4 @page:x8 bd404100 1e20096b            # mov w20, #5 (walk) -> the same; s11 *= [page+0x40]
+# The movement dead zone: the player stands while the stick's direction vector has a squared length under 0.16 (a tilt
+# of 0.4), a float the two words below build in w8 for the compare at main+0x2195f94. The bits come from page +0x50
+# instead (MRPG_MOVE_DEADZONE, the tilt in percent, squared).
+site tilt main 2195f7c 529ae148 @page:x8                                        # mov w8, #0xd70a -> adrp x8, page
+site tilt main 2195f80 72a7c468 b9405108                                        # movk w8, #0x3e23, lsl #16 -> ldr w8, [x8, #0x50]
+
+# Free movement direction. After turning the stick's direction by the camera, FieldCharacter.UpdatePlayerDirectionMove
+# (main+0x2196044, the same test as FieldCharacter.FixInputAxis, inlined) drops the smaller of the two ground axes when
+# it is under 0.6 of the larger: a direction within 31 degrees of either world axis goes along that axis. The two
+# selects that zero an axis keep it instead.
+set freedir  MRPG_FREE_DIRECTION 1
+site freedir main 2196060 1e284d68 1e284d08   # fcsel s8, s11 (0), s8, mi -> fcsel s8, s8, s8, mi
+site freedir main 219606c 1e294d69 1e294d29   # fcsel s9, s11 (0), s9, mi -> fcsel s9, s9, s9, mi

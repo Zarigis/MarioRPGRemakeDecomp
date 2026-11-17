@@ -368,7 +368,8 @@ def game_turn(a):
     if rec_dir:
         files = recorded(rec_dir)
         out.append(text(f'{len(files)} frames recorded in {rec_dir} (every {every}); numbers on the tiles are frames'))
-        out += sheet(files, int(a.get('max_sheets', 2)), int(a.get('sheet_columns', 4)))
+        if int(a.get('max_sheets', 2)) > 0:
+            out += sheet(files, int(a.get('max_sheets', 2)), int(a.get('sheet_columns', 4)))
     if a.get('screenshot', True) and not r.get('forced'):
         out.append(shot(a.get('width', 640))[1])
     return out

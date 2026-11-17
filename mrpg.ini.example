@@ -357,6 +357,17 @@
 # tab shows each stick's deflection now, so a drifting stick's resting value can be read off.
 # lstick_deadzone = 8
 # rstick_deadzone = 8
+# Walking speed by the left stick's tilt: 1 (default) moves Mario at a speed that follows the tilt: inside the
+# movement dead zone (move_deadzone) he stands, to 70 % he walks (slow to full walking speed), beyond that he runs (from walking to running speed at full
+# tilt; a shoulder button held still walks). 0 gives the game's own two speeds: a run whenever the stick is moved, with
+# auto dash on. Keyboard keys tilt fully, so they run as before. Changes while the game runs take effect at once.
+# stick_speed = 1
+# How far the left stick tilts before Mario moves, in percent (5 to 60; the game's own is 40). Lower it for a stick
+# with a short reach, raise it for one that drifts. Menus are not affected. Changes take effect at once.
+# move_deadzone = 40
+# Movement direction: 1 (default) moves Mario the way the stick points. 0 keeps the game's own snapping, which sends a
+# direction within 31 degrees of either axis of the room along that axis. Read at start.
+# free_direction = 1
 # Mouse camera mode: direct (default) or stick. Direct turns the camera by the raw mouse motion, the same on both axes,
 # with no stick dead zone or response curve (games 1.4.3 and 1.2.1; 1.1.0 uses stick emulation). Stick makes the
 # mouse a right stick. Neither changes the gamepad. The Controls tab changes this while the game runs.

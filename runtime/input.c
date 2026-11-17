@@ -17,10 +17,13 @@
 #include "input.h"
 #include "input_map.h"
 #include "input_wsys.h"
+#include "layout.h"
 #include "nvn_api.h"
 #include "ui/menu.h"
 #include "vk.h"
 #include "platform/platform.h"
+
+static void move_tilt(const int32_t sl[2]);   // the walking speed by stick tilt, below
 
 enum { STICK_MAX = 32767, STICK_DIR = 16384, TRIGGER_ON = 16384, RESCAN_MS = 1000 };
 
@@ -681,6 +684,7 @@ static void poll_merged(uint64_t *buttons, int32_t *lx, int32_t *ly, int32_t *rx
     script_apply(&b, sl, sr);
     control_input(&b, sl, sr);
     rec_apply(b, sl, sr);
+    move_tilt(sl);
     // Minus and Plus held together (gamepad or keys) open or close the menu and never reach the game
     static int combo_held;
     int32_t st[4] = {sl[0], sl[1], sr[0], sr[1]};
@@ -695,6 +699,70 @@ static void poll_merged(uint64_t *buttons, int32_t *lx, int32_t *ly, int32_t *rx
     stick_bits(&b, sr[0], sr[1], B_SR_LEFT);
     __atomic_store_n(&g_buttons_last, b, __ATOMIC_RELAXED);
     *buttons = b; *lx = sl[0]; *ly = sl[1]; *rx = sr[0]; *ry = sr[1];
+}
+
+// ---- walking speed by stick tilt (recomp/patches-v101.txt, set tilt; MRPG_STICK_SPEED, default on)
+// The game moves the player at one of two speeds, walk or run, whatever the stick's tilt; with "auto dash" it runs
+// unless a shoulder button is held. Here the tilt sets the speed instead, in two parts. The game ignores a tilt under
+// 0.4; MRPG_MOVE_DEADZONE (percent, live) sets that tilt (page +0x50, its square as the game compares it). From the
+// dead zone to TILT_RUN the player walks, at TILT_WALK_SLOW of the walk speed rising to the full walk speed;
+// beyond TILT_RUN the game's own choice stands (a run with auto dash), at a speed rising from the walk speed to the
+// run speed at full tilt. A keyboard's sticks are full tilt, so the keyboard runs as before; the walk key gives a walk.
+// The page words: +0x40 walk speed factor, +0x44 and +0x48 the mask and bits set on get_Run's result, +0x4c run speed
+// factor (patches-v101.txt explains the sites). The walk and run speeds are read from the game's speed table
+// (FieldCharacter's statics, through main+0x3a5f070) for the ratio between them.
+#define DEADZONE_MIN 5
+#define DEADZONE_MAX 60
+#define TILT_RUN 0.7f
+#define TILT_WALK_SLOW 0.35f
+static int tilt_set = -2;
+static float tilt_ratio = 0.5f;   // walk speed / run speed, as last read from the game
+
+// The movement dead zone as a tilt, 0..1, from MRPG_MOVE_DEADZONE (DEADZONE_MIN..DEADZONE_MAX percent).
+static float tilt_deadzone(void) {
+    int pct = cfg_int("MRPG_MOVE_DEADZONE");
+    return (pct < DEADZONE_MIN ? DEADZONE_MIN : pct > DEADZONE_MAX ? DEADZONE_MAX : pct) / 100.0f;
+}
+
+static void tilt_store(float walk, uint32_t mask, uint32_t bits, float run) {
+    uint8_t *page = rt_patch_page();
+    float dz = tilt_deadzone(), dz2 = dz * dz;
+    memcpy(page + 0x50, &dz2, 4);
+    memcpy(page + 0x40, &walk, 4);
+    memcpy(page + 0x44, &mask, 4);
+    memcpy(page + 0x48, &bits, 4);
+    memcpy(page + 0x4c, &run, 4);
+}
+
+void move_tilt_init(void) {
+    tilt_set = rt_patch_set("tilt");
+    if (tilt_set < 0) return;
+    tilt_store(1.0f, ~0u, 0, 1.0f);   // the game's own speeds and choice until the first input
+    rt_log("input: walking speed %s (MRPG_STICK_SPEED)", rt_patch_enabled(tilt_set) ? "follows the stick's tilt" : "is the game's");
+}
+
+static void move_tilt(const int32_t sl[2]) {
+    if (tilt_set < 0 || !rt_patch_enabled(tilt_set)) return;
+    if (!cfg_bool("MRPG_STICK_SPEED")) {   // switched off in the menu: the sites stay, with the game's own values
+        tilt_store(1.0f, ~0u, 0, 1.0f);
+        return;
+    }
+    uint64_t slot = 0, klass = 0, statics = 0;
+    float speed[2];
+    if (plat_mem_read(MOD_MAIN_BASE + 0x3a5f070, &slot, 8) && slot > 0x10000 && !(slot & 7) && plat_mem_read(slot, &klass, 8) &&
+        klass > 0x10000 && !(klass & 7) && plat_mem_read(klass + 0xb8, &statics, 8) && statics > 0x10000 && !(statics & 7) &&
+        plat_mem_read(statics + 0x30, speed, 8) && speed[0] > 0 && speed[1] >= speed[0] && speed[1] < 1000)
+        tilt_ratio = speed[0] / speed[1];
+    float t = sqrtf((float)sl[0] * sl[0] + (float)sl[1] * sl[1]) / 32767.0f, dz = tilt_deadzone();
+    if (t < dz || t >= 0.999f) {   // at rest, or full tilt (a keyboard, a stick pushed all the way): the game's own
+        tilt_store(1.0f, ~0u, 0, 1.0f);
+    } else if (t < TILT_RUN) {           // a walk, slow to full walking speed
+        float u = (t - dz) / (TILT_RUN - dz);
+        tilt_store(TILT_WALK_SLOW + (1.0f - TILT_WALK_SLOW) * u, 0, 0, 1.0f);
+    } else {                             // the game's choice; a run goes from walking to running speed
+        float u = (t - TILT_RUN) / (1.0f - TILT_RUN);
+        tilt_store(1.0f, ~0u, 0, tilt_ratio + (1.0f - tilt_ratio) * u);
+    }
 }
 
 uint64_t input_buttons_last(void) { return __atomic_load_n(&g_buttons_last, __ATOMIC_RELAXED); }

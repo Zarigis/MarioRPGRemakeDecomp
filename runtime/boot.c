@@ -328,6 +328,7 @@ void rt_boot(void) {
     rt_patches_init();
     mods_exefs_switch();   // after the patch sets' settings: an enabled mod's ExeFS patches on
     frame_step_init();
+    move_tilt_init();   // input.c: after rt_patches_init, before the game reads the page
     control_init();
     res_init();
     cheats_init();   // after the patch sets: a cheat's set follows its setting

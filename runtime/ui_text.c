@@ -291,6 +291,10 @@ static const char *const text_en[UI_TEXT_COUNT] = {
     [UI_MENU_STICK_SENS] = "Stick camera speed",
     [UI_MENU_STICK_SENS_DESC] = "Multiplies the game's own right-stick camera speed, top speed included, at each of the "
                                 "game's five camera sensitivities. The mouse keeps its own setting.",
+    [UI_MENU_STICK_SPEED] = "Walking speed follows the stick",
+    [UI_MENU_STICK_SPEED_DESC] = "The left stick's tilt sets Mario's speed: past the dead zone he walks, slow to full walking speed, and from 70 % on he runs, faster the further the stick goes. Off: the game's own two speeds, a run whenever the stick moves (a shoulder button held walks). Keys tilt fully and run either way.",
+    [UI_MENU_MOVE_DEADZONE] = "Movement dead zone",
+    [UI_MENU_MOVE_DEADZONE_DESC] = "How far the left stick has to tilt before Mario moves. The game's own is 40 %; lower it for a stick that does not reach far, raise it for one that drifts. Menus are not affected.",
 
     [UI_BINDS_HELP] = "Select a cell and press A or Enter, then the key, mouse button or controller button. Delete or "
                       "X clears a cell. A key in use moves here; a controller button swaps with the one it replaces.",
@@ -767,6 +771,10 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
     [UI_MENU_STICK_SENS] = "Скорость камеры (стик)",
     [UI_MENU_STICK_SENS_DESC] = "Умножает скорость поворота камеры правым стиком, включая наибольшую, при каждой из пяти "
                                 "чувствительностей камеры в игре. На мышь не влияет.",
+    [UI_MENU_STICK_SPEED] = "Скорость ходьбы по наклону стика",
+    [UI_MENU_STICK_SPEED_DESC] = "Наклон левого стика задаёт скорость Марио: за мёртвой зоной он идёт, от медленного шага до полного, а с 70 % бежит, тем быстрее, чем дальше стик. Выкл.: две скорости самой игры, бег при любом наклоне (с зажатой плечевой кнопкой — шаг). Клавиши дают полный наклон и бегут в любом случае.",
+    [UI_MENU_MOVE_DEADZONE] = "Мёртвая зона движения",
+    [UI_MENU_MOVE_DEADZONE_DESC] = "Насколько нужно наклонить левый стик, чтобы Марио пошёл. В игре — 40 %; уменьшите для стика с малым ходом, увеличьте для дрейфующего. На меню не влияет.",
 
     [UI_BINDS_HELP] = "Выберите ячейку и нажмите A или Enter, затем клавишу, кнопку мыши или кнопку контроллера. "
                       "Delete или X очищает ячейку. Занятая клавиша переходит сюда; кнопка контроллера меняется "
@@ -1417,6 +1425,10 @@ static const char *const text_pt_br[UI_TEXT_COUNT] = {
     [UI_MENU_STICK_SENS_DESC] = "Multiplica a velocidade da câmera do analógico direito do jogo, incluindo a máxima, "
                                 "em cada uma das cinco sensibilidades de câmera do jogo. O mouse mantém a própria "
                                 "configuração.",
+    [UI_MENU_STICK_SPEED] = "Velocidade de andar segue o analógico",
+    [UI_MENU_STICK_SPEED_DESC] = "A inclinação do analógico esquerdo define a velocidade do Mario: depois da zona morta ele anda, de devagar à velocidade total de andar, e a partir de 70 % corre, mais rápido quanto mais o analógico vai. Desligado: as duas velocidades do próprio jogo, correr sempre que o analógico se move (com um botão de ombro, andar). As teclas inclinam por completo e correm de qualquer forma.",
+    [UI_MENU_MOVE_DEADZONE] = "Zona morta do movimento",
+    [UI_MENU_MOVE_DEADZONE_DESC] = "Quanto o analógico esquerdo precisa inclinar para o Mario se mover. O do jogo é 40 %; diminua para um analógico de curso curto, aumente para um com drift. Os menus não mudam.",
     [UI_MENU_WALK_KEY] = "Tecla de andar",
     [UI_MENU_WALK_KEY_DESC] = "Segure para inclinar os analógicos do teclado só em parte, assim o teclado anda em vez "
                               "de correr. A intensidade do andar define quanto. Controle e mouse não são afetados.",
@@ -2036,6 +2048,10 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
     [UI_MENU_RESTART_SAVING] = "游戏正在存档：稍后即可重启。",
     [UI_MENU_STICK_SENS] = "摇杆镜头速度",
     [UI_MENU_STICK_SENS_DESC] = "在游戏的五档镜头灵敏度下，按倍数调整右摇杆的镜头转动速度（包括最高速度）。鼠标使用自己的设置。",
+    [UI_MENU_STICK_SPEED] = "行走速度跟随摇杆",
+    [UI_MENU_STICK_SPEED_DESC] = "左摇杆的倾斜程度决定马力欧的速度：超出死区后开始行走，从慢走到全速行走；从 70 % 起开始奔跑，摇杆推得越远跑得越快。关闭：使用游戏自带的两种速度，只要摇杆移动就奔跑（按住肩键则行走）。按键始终为满倾斜，照常奔跑。",
+    [UI_MENU_MOVE_DEADZONE] = "移动死区",
+    [UI_MENU_MOVE_DEADZONE_DESC] = "左摇杆需要倾斜多少马力欧才会移动。游戏自带为 40 %；行程短的摇杆可调低，漂移的摇杆可调高。不影响菜单。",
     [UI_MENU_WALK_KEY] = "步行键",
     [UI_MENU_WALK_KEY_DESC] = "按住时键盘模拟的摇杆只推到一部分，使键盘操作走路而不是奔跑。推动幅度由步行幅度决定。手柄和鼠标不受影响。",
     [UI_MENU_WALK_KEY_TAKEN] = "同时为 %s",
