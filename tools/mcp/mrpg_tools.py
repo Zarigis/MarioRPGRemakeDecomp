@@ -472,10 +472,61 @@ def game_state():
     return save, players
 
 
+# A battle keeps its own hit points: Battle.BattleManager copies the party in when the battle starts and writes the
+# result back when it ends, so a change to the save data during a battle is not seen and is overwritten afterwards.
+# Battle.BattleManager.get_instance and get_is_in_battle (main+0x1cd11c0, +0x1cd1100) load the class through the
+# pointer at main+0x3a57e48, which points at the slot holding the class; in the class's static fields the "in battle"
+# byte is at +8 and the instance at +0x10. The instance's _pc_list (get_pc_list, main+0x1cd4ec0) at +0xd8 is a
+# BattleCharacterList whose List is at +0x10: items array at +0x10, count at +0x18, elements from array+0x20. These
+# are the party members fighting; _pc_all_list at +0x100 was empty in the battle this was checked in. A
+# BattleCharacter's parameters are at +0x20 (get_param); in them the character id at +0x20 (1 is Mario: the index in
+# the save data's player array), the hit point counter at +0x28 (get_hp) and the "is player" byte at +0x6c; the
+# counter (BattlePointParam) has its maximum at +0x10 and the current value at +0x18.
+BATTLE_MANAGER_CLASS_REF = 0x3a57e48
+
+
+def battle_points():
+    """[(character id, address of the hit point counter, hp, max hp)] for the party in the running battle; empty
+    outside a battle or when anything on the way does not look like the layout above."""
+    def ptr(addr):
+        p = u64(addr)
+        if p < 0x10000 or p & 7:
+            raise ValueError
+        return p
+    try:
+        statics = ptr(ptr(ptr(MAIN_BASE + BATTLE_MANAGER_CLASS_REF)) + 0xb8)
+        if not peek(statics + 8, 1)[0]:
+            return []
+        lst = ptr(ptr(ptr(statics + 0x10) + 0xd8) + 0x10)
+        items, count = ptr(lst + 0x10), i32s(lst + 0x18, 1)[0]
+        if not 0 < count <= 8:
+            return []
+        out = []
+        for i in range(count):
+            param = ptr(ptr(items + 0x20 + 8 * i) + 0x20)
+            if not peek(param + 0x6c, 1)[0]:
+                continue
+            point = ptr(param + 0x28)
+            mx, hp = i32s(point + 0x10, 1)[0], i32s(point + 0x18, 1)[0]
+            if 0 < mx <= 9999 and 0 <= hp <= mx:
+                out.append((i32s(param + 0x20, 1)[0], point, hp, mx))
+        return out
+    except (ToolError, ValueError):
+        return []
+
+
 def party_text(save, players):
     fp, fp_max, coins = i32s(save + 0x50, 3)
     rows = [f'{i} {NAMES[i] if i < len(NAMES) else "?"}: HP {hp}/{mx}' for i, (p, hp, mx) in enumerate(players) if p]
+    battle = battle_points()
+    if battle:
+        rows.append('in battle (its own hit points, written back when it ends): '
+                    + ', '.join(f'{battle_name(c)} {hp}/{mx}' for c, _, hp, mx in battle))
     return f'coins {coins}, FP {fp}/{fp_max}\n' + '\n'.join(rows)
+
+
+def battle_name(character_id):
+    return NAMES[character_id] if 0 < character_id < len(NAMES) else f'character {character_id}'
 
 
 def game_party(a):
@@ -498,6 +549,9 @@ def game_heal(a):
         if not 0 < mx <= 9999:
             raise ToolError(f'character {i} has a maximum of {mx} hit points: not the layout this tool knows')
         poke_i32(p + 0x24, mx)
+    for character, point, _, mx in battle_points():   # the running battle's copy, or the heal is lost when it ends
+        if character in idx:
+            poke_i32(point + 0x18, mx)
     if a.get('fp', True):
         fp_max = i32s(save + 0x54, 1)[0]
         if 0 < fp_max <= 999:
@@ -568,8 +622,9 @@ TOOLS = [
         'dir': {'type': 'string'}, 'first': {'type': 'integer'}, 'last': {'type': 'integer'},
         'max_sheets': {'type': 'integer'}, 'sheet_columns': {'type': 'integer'}}, ['dir']),
     tool('game_party', 'Cheat helper: the coins, flower points and each character\'s hit points, read from the game\'s memory.'),
-    tool('game_heal', 'Cheat: set a character\'s hit points to the maximum (it does not revive anyone mid-battle animation; '
-         'the screen shows it at the next update). Works paused or running, once a game is loaded.', {
+    tool('game_heal', 'Cheat: set a character\'s hit points to the maximum, in the save data and, during a battle, in the '
+         'battle\'s own copy for the members fighting (it does not revive a fallen one; the screen shows it at the '
+         'next update). Works paused or running, once a game is loaded.', {
              'character': {'type': 'string', 'description': '"all" (default), a name (Mario, Mallow, Geno, Bowser, Peach) or an index from game_party.'},
              'fp': {'type': 'boolean', 'description': 'Also refill the flower points (default true).'}}),
     tool('game_coins', 'Cheat: give coins (the game allows 0 to 9999).', {

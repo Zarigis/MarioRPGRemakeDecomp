@@ -122,6 +122,13 @@ here but in your notes.
 - **seen** Mushroom Way Hammer Bros (two of them, end of room 3) beat a LV2 Mario twice: "Hammer Time" throws several hammers for about 8 each. Arrive at LV3 or more with Mushrooms. Game over sends you to the Load screen; the autosave from entering room 3 brings you back with full HP.
 - **seen** A scripted attack sequence sent while the enemy is still acting is swallowed; wait until the Item/Special/Attack/Other ring is on screen before pressing A.
 - **seen** Bowser fight: the cursor moves between Bowser and Chaindelier with UP/DOWN.
+- **seen** Mario's Jump timed, scripted from the command ring: Y (4 frames), wait 30, A (select Jump), wait 20, A (confirm target), wait 84, A (3 frames). Gave the timed bonus 3 of 3 times on a Hammer Bro (6+16 damage).
+- **seen** Hammer Bros at LV2 are winnable with timed Jumps (16 per timed Jump) and one Mushroom; they drop a Flower Jar, then the Hammer (equip it: Attack 23 -> 33).
+- **seen** Mallow's basic attack timed, scripted from the command ring: A (Attack), wait 30, A (confirm target), wait 34, A (3 frames) gave "Excellent" with splash damage. Mario's attack: A, wait 20, A, wait 35, A gave Excellent and a Chain.
+- **seen** Mallow's Thunderbolt from the ring: Y, wait 40, A (select), wait 30, A (confirm, all enemies), wait 215, A. The bolts end about 230 frames after the confirm; the "!" shows over Mallow near the end. It hits every enemy; Frogog is weak to it (50 damage at LV2).
+- **seen** In battle the target cursor moves to an ally with DOWN (for items such as Mushroom or Pick Me Up).
+- **seen** The battle action gauge (bottom left) only rises on Excellent timed hits, perfect blocks and chains; plain "Good" hits leave it unchanged.
+- **seen** The `game_heal` cheat works during a battle for the members fighting (the HUD follows within a few frames); `game_party` then shows the battle's own hit points on an extra line. It does not revive a fallen member.
 
 ### Places, puzzles and bosses
 
@@ -130,6 +137,13 @@ here but in your notes.
 - **seen** "?" treasure boxes float well above the ground: standing next to the box and jumping just lands Mario on top of it. Stand on the box's shadow (on Mushroom Way, about one Mario-height below and right of the box on screen) and press B. A hit plays a short lid animation that looks like the box splitting in two for a few frames; that is normal.
 - **seen** Mushroom Way: on choosing "No" to "Do you know about Action Commands?" Toad runs a tutorial battle against a Goomba before you reach the map (about 6000 frames of text). Toad gives 3 Mushrooms at the end.
 - **seen** After Bowser's Keep, Toad sends Mario back to Bowser's Keep. On the world map only Bowser's Keep is reachable (left of Mario's Pad); entering it plays the Exor cutscene, after which Mario lands on Vista Hill and has to talk to Toad in the house again.
+
+- **seen** After the Hammer Bros the world map leads to the Mushroom Kingdom node (A enters). Castle: walk up-right through town; the throne-room story runs on A presses. The Croco movie starts when you leave the castle and head down-left into town.
+- **seen** Mushroom Kingdom inn: the building down-left from the town entrance; talk to the keeper, "crash for 3 coins". Its save block is in the upper room and is hard to get onto: about 12 jumps from below and beside it only bumped it. Jumping from the stairs takes the stairs instead. Use System > Return to Title and the autosave if you only need to check the Load screen.
+- **seen** Mushroom Kingdom item shop: route from the town entrance (Mario at the bottom left after entering from the map): [0.7,0.7] 90 frames, [-0.7,-0.7] 30, [-0.7,0.7] 50, [0.7,-0.7] 15, [0.3,1] 40 reaches the door; A on the counter keeper. In Buy, L/R switch Items/Armour, UP raises the quantity.
+- **seen** Mallow joins after you leave the castle and talk to him by the item shop. Then Toad gives the map near the town's lower-right exit and the world map shows Bandit's Way below the Mushroom Kingdom.
+- **seen** Bandit's Way room 1: the exit to room 2 is down-right ([0.7,-0.7]) past the second battle spot. Room 2 (round rock, palm tree, pink flower): the way on is the flower. Stand on it (it carries Mario round as it spins), wait until it has turned him to face the cliff, then press B: the jump lands on top. Jumping at the rock from the ground or pressing A beside the flower does nothing. Step a few frames per turn to catch the facing. (Shown by the developer playing by hand.)
+- **seen** System > To World Map works in town (not in the Mario's Pad yard).
 
 ### Working with the tools
 
