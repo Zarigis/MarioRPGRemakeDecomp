@@ -518,7 +518,7 @@ static int init(VkCtx *c) {
                               .addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, .maxLod = 0};
     if (!H.push || vkCreateSampler(c->device, &si, NULL, &H.sampler) != VK_SUCCESS ||
         !(H.dsl_enc = set_layout(c, enc, 3)) || !(H.dsl_ui = set_layout(c, &ui, 1)) ||
-        !(H.enc_layout = pipe_layout(c, &H.dsl_enc, VK_SHADER_STAGE_COMPUTE_BIT, 32)) ||
+        !(H.enc_layout = pipe_layout(c, &H.dsl_enc, VK_SHADER_STAGE_COMPUTE_BIT, 48)) ||
         !(H.ui_layout = pipe_layout(c, &H.dsl_ui, VK_SHADER_STAGE_FRAGMENT_BIT, 16))) {
         rt_log("hdr: the present passes could not be created; the picture goes out unconverted");
         return 0;
@@ -585,8 +585,9 @@ VkImage vk_hdr_encode(VkCommandBuffer cb, unsigned slot, VkImage src, VkFormat f
          .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .pImageInfo = &oi}};
     vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_COMPUTE, H.enc);
     rec_push(H.push, cb, VK_PIPELINE_BIND_POINT_COMPUTE, H.enc_layout, 0, 3, w);
-    struct { int32_t offset[2], size[2]; float p[4]; } pc = {{crop[0], crop[1]}, {crop[2], crop[3]},
-                                                            {n.ui, n.peak, decode ? 1.0f : 0.0f, mode}};
+    struct { int32_t offset[2], size[2]; float p[4], adj[4]; } pc = {{crop[0], crop[1]}, {crop[2], crop[3]},
+                                                                    {n.ui, n.peak, decode ? 1.0f : 0.0f, mode}};
+    vk_color_adjust(pc.adj);   // the colour profile (vk_color.c), applied in hdr_encode.comp
     vkCmdPushConstants(cb, H.enc_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof pc, &pc);
     vkCmdDispatch(cb, ((uint32_t)crop[2] + 7) / 8, ((uint32_t)crop[3] + 7) / 8, 1);
     barrier(cb, src, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL, CS, 0, ALL, 0);

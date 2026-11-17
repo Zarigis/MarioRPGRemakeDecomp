@@ -153,6 +153,9 @@ void vk_fsr_release(void);   // before the device goes away
 // scales that one instead, crop {0, 0, w, h}); VK_NULL_HANDLE = nothing recorded. src is in GENERAL, fmt its format.
 VkImage vk_color_record(VkCommandBuffer cb, unsigned slot, VkImage src, VkFormat fmt, const int crop[4], int always);
 void vk_color_release(void);   // before the device goes away
+// The colour profile's brightness (added), contrast, saturation and gamma, for the HDR encode; 1 when any differs from
+// "unchanged". Present thread.
+int vk_color_adjust(float adj[4]);
 // HDR output (vk_hdr.c). vk_hdr_wanted: MRPG_HDR, read once. vk_hdr_surface_format: the HDR10 surface format when wanted
 // and offered (1). vk_hdr_set_active: gfx_present.c says whether the swapchain is HDR10 (vk_hdr_active). vk_hdr_encode:
 // like vk_color_record, src's crop as PQ code values (RGBA16F, crop {0, 0, w, h}). vk_hdr_ui_target / vk_hdr_ui_compose:

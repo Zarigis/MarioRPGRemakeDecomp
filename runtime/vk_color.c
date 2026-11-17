@@ -7,6 +7,7 @@
 // One compute pass (shaders/color_grade.comp) reads the crop rectangle of the game's image and writes an RGBA16F image
 // of its size, which present_image then hands to FSR or the blit in place of the game's image. The HUD is part of that
 // picture and is adjusted with it; the in-game menu is drawn later, straight into the swapchain image, and is not.
+// With HDR on, this pass does not run: shaders/hdr_encode.comp applies the same four values (vk_color_adjust).
 // The source view of slot s is destroyed when slot s records again (present_image has waited for that slot's fence);
 // the output image is shared by all slots, and each frame's first barrier orders it after the previous frame's reads.
 #include "vk.h"
@@ -134,6 +135,12 @@ static void barrier(VkCommandBuffer cb, VkImage img, VkImageLayout from, VkPipel
     VkDependencyInfo d = {.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO, .imageMemoryBarrierCount = 1,
                           .pImageMemoryBarriers = &b};
     vkCmdPipelineBarrier2(cb, &d);
+}
+
+int vk_color_adjust(float adj[4]) {
+    int on = adjusting();
+    memcpy(adj, C.adj, sizeof C.adj);
+    return on;
 }
 
 // always: record the pass at the default values too, as a plain copy (present_image: a source the blit must not read
