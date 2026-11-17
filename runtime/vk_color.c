@@ -136,8 +136,10 @@ static void barrier(VkCommandBuffer cb, VkImage img, VkImageLayout from, VkPipel
     vkCmdPipelineBarrier2(cb, &d);
 }
 
-VkImage vk_color_record(VkCommandBuffer cb, unsigned slot, VkImage src, VkFormat fmt, const int crop[4]) {
-    if (!adjusting()) return VK_NULL_HANDLE;
+// always: record the pass at the default values too, as a plain copy (present_image: a source the blit must not read
+// through its own format).
+VkImage vk_color_record(VkCommandBuffer cb, unsigned slot, VkImage src, VkFormat fmt, const int crop[4], int always) {
+    if (!adjusting() && !always) return VK_NULL_HANDLE;
     VkCtx *c = vk_ctx();
     if (!C.tried) init(c);
     if (!C.ok || !ensure_image(c, (uint32_t)crop[2], (uint32_t)crop[3])) return VK_NULL_HANDLE;

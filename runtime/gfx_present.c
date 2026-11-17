@@ -655,11 +655,22 @@ static void present_image(VkImage src, VkImageLayout layout, VkFormat fmt, int w
     }
     // Colour adjustment (MRPG_COLOR_*, vk_color.c), or on an HDR10 swapchain the PQ encode (vk_hdr.c; the adjustment is
     // for SDR): a copy of the crop takes the game image's place below
+    // An sRGB source (the Unity player's window images are RGBA8_SRGB): its bytes are the picture as the display wants
+    // it, and the swapchain is UNORM so that bytes pass through. vkCmdBlitImage would decode them to linear and store
+    // that, a picture far too dark; so the passes read it through a UNORM view (the image allows reinterpreting
+    // views, vk_texture.c), and the colour pass always runs, as the copy the blit then reads.
+    VkFormat raw = fmt == VK_FORMAT_R8G8B8A8_SRGB ? VK_FORMAT_R8G8B8A8_UNORM
+                 : fmt == VK_FORMAT_B8G8R8A8_SRGB ? VK_FORMAT_B8G8R8A8_UNORM : fmt;
+    int srgb = raw != fmt;
+    if (srgb && !general) {
+        static int logged;
+        if (!logged++) rt_log("gfx: an sRGB picture that the passes cannot read; it shows too dark");
+    }
     VkImage graded = !general ? VK_NULL_HANDLE : g_sc_hdr ? vk_hdr_encode(cb, slot, src, fmt, rect)
-                                                         : vk_color_record(cb, slot, src, fmt, rect);
+                                                         : vk_color_record(cb, slot, src, raw, rect, srgb);
     const int grect[4] = {0, 0, cw, ch};
     VkImage psrc = graded ? graded : src;
-    VkFormat pfmt = graded ? VK_FORMAT_R16G16B16A16_SFLOAT : fmt;
+    VkFormat pfmt = graded ? VK_FORMAT_R16G16B16A16_SFLOAT : raw;
     const int *prect = graded ? grect : rect;
     // FSR (MRPG_UPSCALER) when the picture's rectangle is larger than the crop; else the bilinear blit
     int fsr = general && vk_fsr_record(cb, slot, psrc, pfmt, graded ? cw : w, graded ? ch : h, prect, dst, to);
