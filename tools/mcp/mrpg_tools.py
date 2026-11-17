@@ -263,6 +263,8 @@ def game_start(a):
         env['MRPG_BACKGROUND_WINDOW'] = '1'
     if not a.get('real_input', False):
         env['MRPG_INPUT'] = 'none'
+    if not a.get('sound', False):   # test runs are silent unless asked for: the player may be in the room
+        env['MRPG_VOLUME'] = '0'
     env.update({k: str(v) for k, v in (a.get('env') or {}).items()})
     log = open(WORK / 'game.log', 'wb')
     flags = (subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP) if os.name == 'nt' else 0
@@ -606,6 +608,7 @@ TOOLS = [
                           'into its folder again before starting (default: only when it has none yet).'},
         'background': {'type': 'boolean', 'description': 'Keep the window behind other windows (default true).'},
         'real_input': {'type': 'boolean', 'description': 'Also read the keyboard, mouse and gamepad (default false).'},
+        'sound': {'type': 'boolean', 'description': 'Play sound (default false: started muted, MRPG_VOLUME=0).'},
         'env': {'type': 'object', 'description': 'Extra MRPG_* settings, for example {"MRPG_TRACE": "fs"}.'},
         'args': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Extra arguments for mrpg.exe.'},
         'replay': {'type': 'string', 'description': 'A session folder (build/mcp/<instance>/sessions/<time>): put its '

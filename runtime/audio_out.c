@@ -12,6 +12,7 @@
 
 #include <SDL3/SDL.h>
 
+#include "cfg.h"
 #include "host.h"
 #include "platform/platform.h"
 
@@ -28,6 +29,7 @@ typedef struct {
     uint64_t event;                 // nn::os::SystemEvent signalled when a buffer is played, 0 = none
     int rate, channels, state;
     SDL_AudioStream *stream;        // NULL without a device
+    int gain_set;                   // the stream has the current MRPG_VOLUME (volume_live)
     uint64_t appended;              // bytes handed over since the last start
     uint64_t clock_start;           // without a device: when the first of them was appended
     struct { uint64_t guest, end; } q[MAX_QUEUED];   // appended and not yet handed back, oldest first; end: the
@@ -145,6 +147,22 @@ static void ov_close(Cpu *c) {
     plat_mutex_unlock(&lock);
 }
 
+// MRPG_VOLUME (percent, live): the player's volume as the stream's gain. The audio renderer's mixer applies it on its
+// own (audio_mixer.c host_volume); a game that writes its mixed sound to AudioOut, as Super Mario RPG's CRI middleware
+// does, never went through that mixer and played at full volume whatever the setting. Under the lock.
+static void volume_live(Out *o) {
+    static unsigned seen = ~0u;
+    static float gain = 1.0f;
+    unsigned v = cfg_version();
+    if (v != seen) {
+        seen = v;
+        double pct = cfg_double("MRPG_VOLUME");
+        gain = (float)((pct < 0 ? 0 : pct > 100 ? 100 : pct) / 100);
+        for (int i = 0; i < MAX_OUTS; i++) outs[i].gain_set = 0;
+    }
+    if (o->stream && !o->gain_set) o->gain_set = SDL_SetAudioStreamGain(o->stream, gain);
+}
+
 // bool AppendAudioOutBuffer(AudioOut *out, AudioOutBuffer *buffer)
 static void ov_append(Cpu *c) {
     const OutBuffer *b = arg_p(c, 1);
@@ -154,6 +172,7 @@ static void ov_append(Cpu *c) {
     int ok = o->count < MAX_QUEUED;
     if (ok) {
         if (!o->count) o->clock_start = plat_now_ns() - o->appended * 1000000000ull / ((uint64_t)o->rate * 2 * (uint64_t)o->channels);
+        volume_live(o);
         if (o->stream && b->data && b->data_size)
             SDL_PutAudioStreamData(o->stream, (const void *)(uintptr_t)b->data, (int)b->data_size);
         if ((rt_trace & RT_TRACE_AUDIO) && b->data) {   // the loudest sample per channel, over about 5 s of buffers
