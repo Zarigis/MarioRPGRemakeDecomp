@@ -456,7 +456,8 @@ typedef struct {
 } VkTexImage;
 // The window texture the backend presents (vk_backend.c): *image and *format become the float picture the game copied
 // into it, when the last draw into it was that copy and the swapchain is HDR10.
-void vk_hdr_present_source(const VkTexImage *win, VkImage *image, VkFormat *format);
+void vk_hdr_present_source(const VkTexImage *win, VkImage *scene, VkFormat *format);
+void vk_hdr_scene(VkImage scene, VkFormat format);   // the present thread: the scene of the blit that follows
 void vk_hdr_image_gone(VkImage image);
 const VkTexImage *vk_texture_get(const tex_t *t);   // created and made current; NULL for BUFFER or unmapped formats
 const VkTexImage *vk_texture_revive(const tex_t *t, uint32_t pos);  // the entry vk_texture_get would return if it exists, made live at op pos

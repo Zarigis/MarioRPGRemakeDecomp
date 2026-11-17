@@ -1,3 +1,11 @@
+// Super Mario RPG: the game has no tonemap. It renders its scene into an r11g11b10f image (values of 4 and more in a
+// torch-lit room), copies it with a plain shader into the 8-bit sRGB window image, which clips at 1.0, and draws the
+// HUD on top of that. So nothing is replaced in the game: vk_hdr_draw notes the float image that copy read,
+// vk_hdr_present_source hands it to the present once, and vk_hdr_encode (shaders/hdr_encode.comp) takes each pixel
+// from it where the window image still shows the copy, and from the window image where the HUD drew. White is
+// MRPG_HDR_UI_NITS for both; MRPG_HDR_GAME_NITS and MRPG_HDR_HUE belong to the TotK tonemap and do nothing here.
+// MRPG_HDR_MASK=1 shows which pixels came from where. The rest of this comment describes the TotK code base.
+//
 // HDR output (MRPG_HDR=1): an HDR10 swapchain (Rec. 2020 primaries, PQ) and a game picture with highlights above the
 // SDR white. Settings: MRPG_HDR (read at start), MRPG_HDR_PEAK_NITS (the display's peak), MRPG_HDR_GAME_NITS (the
 // picture's white, "paper white") and MRPG_HDR_UI_NITS (the HUD's and this menu's white), the three read when the
@@ -245,7 +253,7 @@ static volatile int32_t g_active;   // the swapchain is HDR10 (gfx_present.c vk_
 static PlatMutex rec_lock = PLAT_MUTEX_INIT;
 // Per presented window image: what the last draw in replay order copied, and where that draw is. Chunks of a replay
 // record at once, so a draw of an earlier chunk can get here after one of a later chunk.
-static struct { VkImage win, src; VkFormat fmt; uint64_t fence; uint32_t pos; } recs[4];
+static struct { VkImage win, src; VkFormat fmt; } recs[4];
 static int nrecs;
 
 void vk_hdr_set_active(int on) { plat_xchg32(&g_active, on); }
@@ -277,14 +285,18 @@ void vk_hdr_draw(VkExec *ex, const VkPipeInfo *info) {
         if (s && !s->gone && is_float(s->format) && s->width == t->width && s->height == t->height && s->samples == 1)
             src = s->image, fmt = s->format;
     }
+    if (!src) return;   // the HUD's draws after the copy: the record stays (the encode tells the HUD's pixels apart)
     plat_mutex_lock(&rec_lock);
     for (int i = 0; i < nrecs; i++)
-        if (recs[i].win == t->image && (ex->fence > recs[i].fence || (ex->fence == recs[i].fence && ex->pos >= recs[i].pos)))
-            recs[i].src = src, recs[i].fmt = fmt, recs[i].fence = ex->fence, recs[i].pos = ex->pos;
+        if (recs[i].win == t->image) recs[i].src = src, recs[i].fmt = fmt;
     plat_mutex_unlock(&rec_lock);
 }
 
-void vk_hdr_present_source(const VkTexImage *win, VkImage *image, VkFormat *format) {
+// The float picture copied into win since its last present, for this present's encode (vk_hdr_scene); none when the
+// frame had no such copy (a menu that fills the screen, a movie). One present takes it: the next frame's copy records
+// it again, and a frame without one must not match its pixels against a scene image the game has since reused.
+void vk_hdr_present_source(const VkTexImage *win, VkImage *scene, VkFormat *format) {
+    *scene = VK_NULL_HANDLE, *format = VK_FORMAT_UNDEFINED;
     if (!vk_hdr_wanted()) return;
     vk_hdr_track = 1;
     plat_mutex_lock(&rec_lock);
@@ -292,12 +304,18 @@ void vk_hdr_present_source(const VkTexImage *win, VkImage *image, VkFormat *form
     for (int i = 0; i < nrecs; i++)
         if (recs[i].win == win->image) r = i;
     if (r < 0 && nrecs < 4) r = nrecs++, recs[r].win = win->image, recs[r].src = VK_NULL_HANDLE;
-    // kept until the next draw into the window texture: a present again without a new copy shows the same picture
-    if (r >= 0 && recs[r].src && vk_hdr_active()) *image = recs[r].src, *format = recs[r].fmt;
+    if (r >= 0 && recs[r].src && vk_hdr_active()) *scene = recs[r].src, *format = recs[r].fmt;
+    if (r >= 0) recs[r].src = VK_NULL_HANDLE;
     plat_mutex_unlock(&rec_lock);
     static int logged;
-    if (!logged && *image != win->image) logged = 1, rt_log("hdr: the present reads the game's float picture");
+    if (!logged && *scene)
+        logged = 1, rt_log("hdr: highlights come from the float picture the game copies into its window image");
 }
+
+// The present thread, before the blit of a frame: the scene image vk_hdr_encode reads with it (VK_NULL_HANDLE: none).
+static VkImage g_scene;
+static VkFormat g_scene_fmt;
+void vk_hdr_scene(VkImage scene, VkFormat format) { g_scene = scene, g_scene_fmt = format; }
 
 void vk_hdr_image_gone(VkImage image) {   // a texture image went away: forget it as window or source
     if (!vk_hdr_track) return;   // no records before the first HDR present (vk_hdr_present_source): no lock per image
@@ -418,7 +436,7 @@ static struct {
     VkFormat ui_fmt;
     Img out;                        // PQ code values of the crop, RGBA16F
     Img menu;                       // the in-game menu, RGBA8
-    VkImageView src_view[SLOTS];
+    VkImageView src_view[SLOTS], scene_view[SLOTS];
 } H;
 
 static VkShaderModule module(VkCtx *c, const uint32_t *code, size_t size) {
@@ -446,10 +464,12 @@ static VkPipelineLayout pipe_layout(VkCtx *c, VkDescriptorSetLayout *dsl, VkShad
 static int init(VkCtx *c) {
     H.tried = 1;
     H.push = (PFN_vkCmdPushDescriptorSetKHR)vkGetDeviceProcAddr(c->device, "vkCmdPushDescriptorSetKHR");
-    VkDescriptorSetLayoutBinding enc[2] = {
+    VkDescriptorSetLayoutBinding enc[3] = {
         {.binding = 0, .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = 1,
          .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT},
         {.binding = 1, .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .descriptorCount = 1,
+         .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT},
+        {.binding = 2, .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = 1,
          .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT}};
     VkDescriptorSetLayoutBinding ui = {.binding = 0, .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                                        .descriptorCount = 1, .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT};
@@ -459,7 +479,7 @@ static int init(VkCtx *c) {
                               .addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
                               .addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, .maxLod = 0};
     if (!H.push || vkCreateSampler(c->device, &si, NULL, &H.sampler) != VK_SUCCESS ||
-        !(H.dsl_enc = set_layout(c, enc, 2)) || !(H.dsl_ui = set_layout(c, &ui, 1)) ||
+        !(H.dsl_enc = set_layout(c, enc, 3)) || !(H.dsl_ui = set_layout(c, &ui, 1)) ||
         !(H.enc_layout = pipe_layout(c, &H.dsl_enc, VK_SHADER_STAGE_COMPUTE_BIT, 32)) ||
         !(H.ui_layout = pipe_layout(c, &H.dsl_ui, VK_SHADER_STAGE_FRAGMENT_BIT, 16))) {
         rt_log("hdr: the present passes could not be created; the picture goes out unconverted");
@@ -494,7 +514,17 @@ VkImage vk_hdr_encode(VkCommandBuffer cb, unsigned slot, VkImage src, VkFormat f
         H.src_view[slot] = VK_NULL_HANDLE;
         return VK_NULL_HANDLE;
     }
+    // the scene of this frame (vk_hdr_scene), through a view of its own; without one binding 2 reads the source again
+    VkImage scene = g_scene;
+    g_scene = VK_NULL_HANDLE;
+    if (H.scene_view[slot]) vkDestroyImageView(c->device, H.scene_view[slot], NULL), H.scene_view[slot] = VK_NULL_HANDLE;
+    if (scene) {
+        vi.image = scene, vi.format = g_scene_fmt;
+        if (vkCreateImageView(c->device, &vi, NULL, &H.scene_view[slot]) != VK_SUCCESS)
+            H.scene_view[slot] = VK_NULL_HANDLE, scene = VK_NULL_HANDLE;
+    }
     Nits n = nits();
+    float mode = !scene ? 0.0f : cfg_bool("MRPG_HDR_MASK") ? 2.0f : 1.0f;
     // an sRGB format decodes itself through the view; 8-bit UNORM holds sRGB codes the shader decodes
     int decode = fmt == VK_FORMAT_R8G8B8A8_UNORM || fmt == VK_FORMAT_B8G8R8A8_UNORM;
     const VkPipelineStageFlags2 CS = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, ALL = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
@@ -502,20 +532,27 @@ VkImage vk_hdr_encode(VkCommandBuffer cb, unsigned slot, VkImage src, VkFormat f
             VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
     barrier(cb, H.out.img, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, ALL, 0, CS,
             VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT);
+    if (scene)
+        barrier(cb, scene, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL, ALL, VK_ACCESS_2_MEMORY_WRITE_BIT, CS,
+                VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
     VkDescriptorImageInfo ii = {H.sampler, H.src_view[slot], VK_IMAGE_LAYOUT_GENERAL},
-                          oi = {VK_NULL_HANDLE, H.out.view, VK_IMAGE_LAYOUT_GENERAL};
-    VkWriteDescriptorSet w[2] = {
+                          oi = {VK_NULL_HANDLE, H.out.view, VK_IMAGE_LAYOUT_GENERAL},
+                          si = {H.sampler, scene ? H.scene_view[slot] : H.src_view[slot], VK_IMAGE_LAYOUT_GENERAL};
+    VkWriteDescriptorSet w[3] = {
+        {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .dstBinding = 2, .descriptorCount = 1,
+         .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .pImageInfo = &si},
         {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .dstBinding = 0, .descriptorCount = 1,
          .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .pImageInfo = &ii},
         {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .dstBinding = 1, .descriptorCount = 1,
          .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .pImageInfo = &oi}};
     vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_COMPUTE, H.enc);
-    rec_push(H.push, cb, VK_PIPELINE_BIND_POINT_COMPUTE, H.enc_layout, 0, 2, w);
+    rec_push(H.push, cb, VK_PIPELINE_BIND_POINT_COMPUTE, H.enc_layout, 0, 3, w);
     struct { int32_t offset[2], size[2]; float p[4]; } pc = {{crop[0], crop[1]}, {crop[2], crop[3]},
-                                                            {n.ui, n.peak, decode ? 1.0f : 0.0f, 0}};
+                                                            {n.ui, n.peak, decode ? 1.0f : 0.0f, mode}};
     vkCmdPushConstants(cb, H.enc_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof pc, &pc);
     vkCmdDispatch(cb, ((uint32_t)crop[2] + 7) / 8, ((uint32_t)crop[3] + 7) / 8, 1);
     barrier(cb, src, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL, CS, 0, ALL, 0);
+    if (scene) barrier(cb, scene, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL, CS, 0, ALL, 0);
     barrier(cb, H.out.img, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL, CS, VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT, ALL,
             VK_ACCESS_2_MEMORY_READ_BIT);
     return H.out.img;
@@ -621,7 +658,10 @@ void vk_hdr_ui_compose(VkCommandBuffer cb, VkImageView dst_view, VkFormat fmt, u
 void vk_hdr_release(void) {
     VkCtx *c = vk_ctx();
     for (int i = 0; i < SLOTS; i++)
+    {
         if (H.src_view[i]) vkDestroyImageView(c->device, H.src_view[i], NULL), H.src_view[i] = VK_NULL_HANDLE;
+        if (H.scene_view[i]) vkDestroyImageView(c->device, H.scene_view[i], NULL), H.scene_view[i] = VK_NULL_HANDLE;
+    }
     img_free(c, &H.out);
     img_free(c, &H.menu);
     if (H.enc) vkDestroyPipeline(c->device, H.enc, NULL);

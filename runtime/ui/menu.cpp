@@ -639,6 +639,12 @@ static void tab_screen(float scale) {
     const char *aniso_names[] = {menu_text(UI_MENU_ANISO_GAME), "2x", "4x", "8x", "16x"};
     opt_choice_list("MRPG_ANISO", UI_MENU_ANISO, aniso, aniso_names, 5, UI_MENU_ANISO_DESC);
     rows_color();
+    // HDR (vk_hdr.c): the picture's highlights come from the game's float scene. One white for the whole picture, HUD
+    // included (MRPG_HDR_UI_NITS, under the label of the TotK code base's game brightness row).
+    opt_group(UI_MENU_HDR_GROUP);
+    opt_toggle("MRPG_HDR", UI_MENU_HDR, UI_MENU_HDR_DESC);
+    opt_slider("MRPG_HDR_PEAK_NITS", UI_MENU_HDR_PEAK, 400, 10000, UI_MENU_HDR_PEAK_DESC, 50, "%.0f");
+    opt_slider("MRPG_HDR_UI_NITS", UI_MENU_HDR_GAME, 80, 500, UI_MENU_HDR_GAME_DESC, 5, "%.0f");
     opt_end();
 }
 
