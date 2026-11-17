@@ -326,7 +326,7 @@ void *rt_patch_page(void);                                 // the page the patch
 void move_tilt_init(void);                                 // input.c: the walking speed's page words
 void frame_step_init(void);                                // after rt_patches_init: the real-time step's first value
 int frame_step_realtime(void);                             // the real-time step is on: presents ignore the interval
-uint64_t frame_step_tick_ns(void);                         // one pacer tick: the limit's period, 1/60 s in a battle
+uint64_t frame_step_tick_ns(void);                         // one pacer tick: the limit's period, 1/60 s in battles and mini games
 double frame_step_limit_hz(void);                         // the frame rate the limit gives (overlay); 0 unknown
 int64_t frame_step_world_us(void);                         // game time since the loaded save's first frame, -1 before
                                                            // (MRPG_FPS_LIMIT, live)

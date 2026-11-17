@@ -20,7 +20,13 @@
 // applies to the rest of the game. The field is read from the game's memory at each present (locked_read): the
 // manager's class through the pointer at main+0x3a57e48 (as its get_instance does, main+0x1cd11c0), the class's
 // static fields at +0xb8, the instance at +0x10 of those.
-// Other frame-counted code may exist outside battles; it has to be found by playing.
+// The world map counts frames too, and asks for nothing: it is one of the game's mini games (MiniGameMap), and so are
+// the others (the Yoshi race, the barrel and mine cart rides, ...), which are held to 60 Hz the same way while one runs.
+// MiniGameController.ProcessScriptCommand (main+0x20abf90) stores the running game in the controller's static
+// Instance when one starts and stores null there when it ends; UpdateController (main+0x20ac630) reads it through
+// the pointer at main+0x3a648a8: class, static fields at +0xb8, Instance at +0. A mini game that steps by elapsed
+// time loses nothing but frames by this.
+// Other frame-counted code may exist elsewhere; it has to be found by playing.
 //
 // The game clock (frame_step_ticks) advances by the pacer's nominal period per present, not by
 // the measured time: at the default limit of 60 a present is exactly one tick, so recorded input replays on the same
@@ -98,18 +104,28 @@ double frame_step_limit_hz(void) {
 #define VBLANK_NS 16666667ull
 static _Atomic int locked;
 
+// The static fields of the class whose pointer slot is at main+ref (an IL2CPP class reference); 0 when not set up.
+static uint64_t class_statics(uint64_t ref) {
+    uint64_t slot = 0, klass = 0, statics = 0;
+    return plat_mem_read(MOD_MAIN_BASE + ref, &slot, 8) && slot > 0x10000 && !(slot & 7) && plat_mem_read(slot, &klass, 8) &&
+                   klass > 0x10000 && !(klass & 7) && plat_mem_read(klass + 0xb8, &statics, 8) && statics > 0x10000 &&
+                   !(statics & 7)
+               ? statics : 0;
+}
+
 static void locked_read(void) {
-    uint64_t slot = 0, klass = 0, statics = 0, inst = 0;
+    uint64_t bm = class_statics(0x3a57e48), mg = class_statics(0x3a648a8), inst = 0, game = 0;
     int32_t rate = 0;
-    int on = plat_mem_read(MOD_MAIN_BASE + 0x3a57e48, &slot, 8) && slot && !(slot & 7) && plat_mem_read(slot, &klass, 8) &&
-             klass > 0x10000 && !(klass & 7) && plat_mem_read(klass + 0xb8, &statics, 8) && statics > 0x10000 &&
-             !(statics & 7) && plat_mem_read(statics + 0x10, &inst, 8) && inst > 0x10000 && !(inst & 7) &&
-             plat_mem_read(inst + 0x1c8, &rate, 4) && (rate == 30 || rate == 60);
+    int battle = bm && plat_mem_read(bm + 0x10, &inst, 8) && inst > 0x10000 && !(inst & 7) &&
+                 plat_mem_read(inst + 0x1c8, &rate, 4) && (rate == 30 || rate == 60);
+    int mini = mg && plat_mem_read(mg, &game, 8) && game > 0x10000 && !(game & 7);
+    int on = battle ? 1 : mini ? 2 : 0;
     if (on != atomic_load_explicit(&locked, memory_order_relaxed)) {
         atomic_store_explicit(&locked, on, memory_order_relaxed);
         if (frame_step_cap_ns() != VBLANK_NS)
-            rt_log("frame rate: %s", on ? "the game asks for a fixed rate (a battle): 60 Hz ticks until it ends"
-                                        : "the fixed-rate scene ended: back to the frame limit");
+            rt_log("frame rate: %s", on == 1 ? "a battle (the game asks for a fixed rate): 60 Hz ticks until it ends"
+                                   : on == 2 ? "a mini game or the world map (counted in frames): 60 Hz ticks until it ends"
+                                             : "the fixed-rate scene ended: back to the frame limit");
     }
 }
 
