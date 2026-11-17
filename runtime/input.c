@@ -24,6 +24,8 @@
 #include "platform/platform.h"
 
 static void move_tilt(const int32_t sl[2]);   // the walking speed by stick tilt, below
+static void camera_stick(const int32_t sr[2], uint64_t *buttons);   // the field camera on the right stick, below
+static void camera_init(void);
 
 enum { STICK_MAX = 32767, STICK_DIR = 16384, TRIGGER_ON = 16384, RESCAN_MS = 1000 };
 
@@ -685,6 +687,7 @@ static void poll_merged(uint64_t *buttons, int32_t *lx, int32_t *ly, int32_t *rx
     control_input(&b, sl, sr);
     rec_apply(b, sl, sr);
     move_tilt(sl);
+    camera_stick(sr, &b);
     // Minus and Plus held together (gamepad or keys) open or close the menu and never reach the game
     static int combo_held;
     int32_t st[4] = {sl[0], sl[1], sr[0], sr[1]};
@@ -735,6 +738,7 @@ static void tilt_store(float walk, uint32_t mask, uint32_t bits, float run) {
 }
 
 void move_tilt_init(void) {
+    camera_init();
     tilt_set = rt_patch_set("tilt");
     if (tilt_set < 0) return;
     tilt_store(1.0f, ~0u, 0, 1.0f);   // the game's own speeds and choice until the first input
@@ -763,6 +767,69 @@ static void move_tilt(const int32_t sl[2]) {
         float u = (t - TILT_RUN) / (1.0f - TILT_RUN);
         tilt_store(1.0f, ~0u, 0, tilt_ratio + (1.0f - tilt_ratio) * u);
     }
+}
+
+// ---- the field camera on the right stick (recomp/patches-v101.txt, set camera; MRPG_CAMERA_STICK, default on)
+// The game's field camera is fixed: a set pitch, yaw and distance per room. The right stick turns it: left and right
+// orbit it around Mario (CAM_YAW_RATE degrees a second at full tilt, all the way round), up and down raise and lower it
+// (CAM_PITCH_RATE, within CAM_PITCH_MAX of the game's angle); with ZL held, up and down zoom out and in instead
+// (CAM_ZOOM_RATE doublings a second, between CAM_ZOOM_MIN and CAM_ZOOM_MAX times the game's distance). The game
+// does not see ZL while it zooms: ZL also makes Mario walk. Clicking the right stick (R3) puts it all back. The offsets
+// stay from room to room; the battle camera and the world map are not affected. The rooms are built to be seen from the
+// game's angle: turned far, the view shows their unfinished backs and edges.
+// Page words: +0x58 pitch offset, +0x5c yaw offset (degrees), +0x60 distance factor.
+#define CAM_DEADZONE 0.2f
+#define CAM_YAW_RATE 90.0f
+#define CAM_PITCH_RATE 45.0f
+#define CAM_PITCH_MAX 30.0f
+#define CAM_ZOOM_RATE 1.0f
+#define CAM_ZOOM_MIN 0.4f
+#define CAM_ZOOM_MAX 2.5f
+static int cam_set = -2;
+static float cam_pitch, cam_yaw, cam_zoom = 1.0f;
+static uint64_t cam_last_ns;
+
+static void cam_store(void) {
+    uint8_t *page = rt_patch_page();
+    memcpy(page + 0x58, &cam_pitch, 4);
+    memcpy(page + 0x5c, &cam_yaw, 4);
+    memcpy(page + 0x60, &cam_zoom, 4);
+}
+
+static void camera_init(void) {
+    cam_set = rt_patch_set("camera");
+    if (cam_set >= 0) cam_store();   // 0, 0 and 1: the game's camera until the stick moves
+}
+
+static float cam_axis(int32_t v) {
+    float a = v / 32767.0f, m = fabsf(a);
+    if (m < CAM_DEADZONE) return 0;
+    return (a < 0 ? -1.0f : 1.0f) * (m - CAM_DEADZONE) / (1.0f - CAM_DEADZONE);
+}
+
+static void camera_stick(const int32_t sr[2], uint64_t *buttons) {
+    if (cam_set < 0 || !rt_patch_enabled(cam_set)) return;
+    uint64_t now = plat_now_ns();
+    float dt = cam_last_ns && now > cam_last_ns ? (float)((now - cam_last_ns) * 1e-9) : 0.0f;
+    cam_last_ns = now;
+    if (dt > 0.1f) dt = 0.1f;   // a pause or a load: no jump
+    if (!cfg_bool("MRPG_CAMERA_STICK") || (*buttons & (1ull << B_STICK_R))) {
+        cam_pitch = cam_yaw = 0;
+        cam_zoom = 1.0f;
+    } else if (*buttons & (1ull << B_ZL)) {   // zoom; ZL is the camera's while the stick is in use
+        float v = cam_axis(sr[1]);
+        if (v != 0.0f || cam_axis(sr[0]) != 0.0f) *buttons &= ~(1ull << B_ZL);
+        cam_zoom *= exp2f(-v * CAM_ZOOM_RATE * dt);   // up: closer
+        if (cam_zoom < CAM_ZOOM_MIN) cam_zoom = CAM_ZOOM_MIN;
+        if (cam_zoom > CAM_ZOOM_MAX) cam_zoom = CAM_ZOOM_MAX;
+        cam_yaw = fmodf(cam_yaw + cam_axis(sr[0]) * CAM_YAW_RATE * dt, 360.0f);
+    } else {
+        cam_yaw = fmodf(cam_yaw + cam_axis(sr[0]) * CAM_YAW_RATE * dt, 360.0f);
+        cam_pitch += cam_axis(sr[1]) * CAM_PITCH_RATE * dt;
+        if (cam_pitch > CAM_PITCH_MAX) cam_pitch = CAM_PITCH_MAX;
+        if (cam_pitch < -CAM_PITCH_MAX) cam_pitch = -CAM_PITCH_MAX;
+    }
+    cam_store();
 }
 
 uint64_t input_buttons_last(void) { return __atomic_load_n(&g_buttons_last, __ATOMIC_RELAXED); }

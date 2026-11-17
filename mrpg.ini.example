@@ -375,6 +375,11 @@
 # Movement direction: 1 (default) moves Mario the way the stick points. 0 keeps the game's own snapping, which sends a
 # direction within 31 degrees of either axis of the room along that axis. Read at start.
 # free_direction = 1
+# Field camera on the right stick: 1 (default) lets left and right orbit the camera around Mario and up and down
+# raise and lower it; with ZL held, up and down zoom in and out. Clicking the stick puts it back. Battles and the world
+# map keep their cameras. The rooms are built to be seen from the game's angle, so a camera turned far shows their
+# unfinished sides. 0 keeps the game's fixed camera. Changes take effect at once.
+# camera_stick = 1
 # Mouse camera mode: direct (default) or stick. Direct turns the camera by the raw mouse motion, the same on both axes,
 # with no stick dead zone or response curve (games 1.4.3 and 1.2.1; 1.1.0 uses stick emulation). Stick makes the
 # mouse a right stick. Neither changes the gamepad. The Controls tab changes this while the game runs.
