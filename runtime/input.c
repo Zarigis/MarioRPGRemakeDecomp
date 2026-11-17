@@ -709,10 +709,11 @@ uint64_t input_buttons_last(void) { return __atomic_load_n(&g_buttons_last, __AT
 static volatile uint64_t g_block_closed, g_menu_closed;
 #define RELEASE_WAIT_NS 1000000000ull
 
-int input_cursor_allowed(void) {
-    const char *in = cfg_get("MRPG_INPUT");
-    return g_block != 1 && g_menu != 1 && mouse_sens_get() > 0 && !(in && !strcmp(in, "none")) && !menu_cursor_pointer();
-}
+// Whether the window may hide the pointer and confine it to its client area (input_win.c cursor_update, input_sdl.c).
+// Never: this game has nothing for the mouse to steer (no camera stick), so the pointer stays free and visible, the
+// mouse camera of the TotK code base gets no motion (it samples only while captured), and mouse buttons press nothing
+// (poll_merged counts them only while captured). The settings menu still takes the mouse.
+int input_cursor_allowed(void) { return 0; }
 
 void input_block(int on) {
     if (!on) __atomic_store_n(&g_block_closed, plat_now_ns(), __ATOMIC_RELEASE);

@@ -386,7 +386,9 @@ extern "C" void menu_vk_release(void) {
 // MRPG_MENU_TEST_SET=<frame>:<key>=<value>[,<key>=<value>...][;<frame>:...]: cfg_set of each key (MRPG_ prefix
 // optional) at that presented frame; changes live settings with no input, menu open or not. mrpg.ini is written only by
 // the pseudo-key SAVE=1 (cfg_save, as a row change does; a failed write shows the menu's save note).
-enum { TAB_SCREEN, TAB_GAME, TAB_SOUND, TAB_CONTROLS, TAB_AMIIBO, TAB_MENU, TAB_ADVANCED, TAB_MODS, TAB_CHEATS, TAB_COUNT };
+// The Amiibo, Mods and Cheats tabs of the TotK code base (amiibo_page.cpp, cheats_tab.cpp, mods.c) are not shown: this
+// game reads no amiibo, and its mod and cheat loading has not been tried.
+enum { TAB_SCREEN, TAB_GAME, TAB_SOUND, TAB_CONTROLS, TAB_MENU, TAB_ADVANCED, TAB_COUNT };
 enum { TEST_PAGE_FRAMES = 30, TEST_SETS = 16 };
 struct TestSet { uint64_t frame; char key[64], value[64]; };
 static struct {
@@ -496,16 +498,11 @@ static void row_window_size(void) {
     opt_choice_list("MRPG_WINDOW_SIZE", UI_MENU_WINDOW_SIZE, pv, pn, n, UI_MENU_WINDOW_SIZE_DESC);
 }
 
-// The game resolution (resolution.c): 16:9 sizes from its smallest, 1280x720 (for weak GPUs), up, the common 21:9 and
-// 32:9 monitor sizes, the 16:10 screens of the Steam Deck, handhelds and laptops and the 3:2 screens of laptops and
-// tablets (Surface, Framework; the camera and the HUD follow
-// another shape, resolution.c res_init; the installer lays the HUD out for each, installer/steps.py ASPECT_SIZES), and
-// the current value when it is another size.
+// The game resolution (resolution.c): 16:9 sizes from 1280x720 (for weak GPUs) up, and the current value when it is
+// another size. Other shapes are not offered: resolution.c draws them as 16:9 with bars until the Unity player's
+// handling of another aspect ratio has been tried.
 static void row_output_res(void) {
-    static const char *const vals[] = {"1280x720", "1600x900", "1920x1080", "2560x1440", "3200x1800", "3840x2160",
-                                       "2560x1080", "3440x1440", "3840x1600", "5120x2160", "3840x1080", "5120x1440",
-                                       "1280x800", "1680x1050", "1920x1200", "2560x1600",
-                                       "1920x1280", "2160x1440", "2256x1504", "2880x1920", "3000x2000"};
+    static const char *const vals[] = {"1280x720", "1600x900", "1920x1080", "2560x1440", "3200x1800", "3840x2160"};
     enum { N = sizeof vals / sizeof *vals };
     char shown[N][32];
     const char *names[N];
@@ -516,51 +513,6 @@ static void row_output_res(void) {
         names[i] = shown[i];
     }
     opt_choice_list("MRPG_OUTPUT_RES", UI_MENU_OUTPUT_RES, vals, names, N, UI_MENU_OUTPUT_RES_DESC);
-}
-
-static void row_render_scale(void) {
-    static const char *const vals[] = {"game", "50", "67", "75", "100", "125", "150", "200"};
-    enum { N = sizeof vals / sizeof *vals };
-    char shown[N][32];
-    const char *names[N];
-    names[0] = menu_text(UI_MENU_RENDER_SCALE_GAME);
-    for (int i = 1; i < N; i++) {
-        snprintf(shown[i], sizeof shown[i], "%s %%", vals[i]);
-        names[i] = shown[i];
-    }
-    opt_choice_list("MRPG_RENDER_SCALE", UI_MENU_RENDER_SCALE, vals, names, N, UI_MENU_RENDER_SCALE_DESC);
-}
-
-static void row_shadow_res(void) {
-    static const char *const vals[] = {"game", "256", "512", "768", "1024", "1536", "2048"};
-    enum { N = sizeof vals / sizeof *vals };
-    const char *names[N];
-    names[0] = menu_text(UI_MENU_SHADOW_RES_GAME);
-    for (int i = 1; i < N; i++) names[i] = vals[i];
-    opt_choice_list("MRPG_SHADOW_RES", UI_MENU_SHADOW_RES, vals, names, N, UI_MENU_SHADOW_RES_DESC);
-}
-
-// Shown only when the build has the fontres patch set (recomp/patches-v143.txt): without it the setting does nothing.
-extern "C" int rt_patch_set(const char *name);   // runtime/patches.c
-
-static void row_font_scale(void) {
-    if (rt_patch_set("fontres") < 0) return;
-    static const char *const vals[] = {"1", "auto", "1.5", "2", "3", "4"};
-    enum { N = sizeof vals / sizeof *vals };
-    const char *names[N] = {"1x", menu_text(UI_MENU_FONT_SCALE_AUTO), "1.5x", "2x", "3x", "4x"};
-    opt_choice_list("MRPG_FONT_SCALE", UI_MENU_FONT_SCALE, vals, names, N, UI_MENU_FONT_SCALE_DESC);
-}
-
-static void row_shadow_scale(void) {
-    static const char *const vals[] = {"1", "2", "3", "4"};
-    static const char *const names[] = {"960 (1x)", "1920 (2x)", "2880 (3x)", "3840 (4x)"};
-    opt_choice_list("MRPG_SHADOW_SCALE", UI_MENU_SHADOW_SCALE, vals, names, 4, UI_MENU_SHADOW_SCALE_DESC);
-}
-
-static void row_shadow_range(void) {
-    static const char *const vals[] = {"100", "150", "200", "300"};
-    static const char *const names[] = {"160 m (1x)", "240 m (1.5x)", "320 m (2x)", "480 m (3x)"};
-    opt_choice_list("MRPG_SHADOW_RANGE", UI_MENU_SHADOW_RANGE, vals, names, 4, UI_MENU_SHADOW_RANGE_DESC);
 }
 
 static void row_gpu(void) {
@@ -678,42 +630,15 @@ static void tab_screen(float scale) {
     opt_choice("MRPG_PERF_OVERLAY", UI_MENU_PERF_OVERLAY, perf, 3, UI_MENU_PERF_OVERLAY_DESC);
     opt_group(UI_MENU_GRAPHICS);
     row_output_res();
-    row_render_scale();
-    opt_toggle("MRPG_DYNAMIC_RES", UI_MENU_DYNAMIC_RES, UI_MENU_DYNAMIC_RES_DESC);
-    row_font_scale();
-    row_shadow_res();
     static const UiTextId up[] = {UI_MENU_UPSCALER_FSR, UI_MENU_UPSCALER_BILINEAR};
     opt_choice("MRPG_UPSCALER", UI_MENU_UPSCALER, up, 2, UI_MENU_UPSCALER_DESC);
     opt_slider("MRPG_SHARPNESS", UI_MENU_SHARPNESS, 0, 100, UI_MENU_SHARPNESS_DESC, 5, "%.0f %%");
     static const UiTextId aspect[] = {UI_MENU_ASPECT_FIT, UI_MENU_ASPECT_STRETCH};
     opt_choice("MRPG_ASPECT", UI_MENU_ASPECT, aspect, 2, UI_MENU_ASPECT_DESC);
-    static const UiTextId movie_aspect[] = {UI_MENU_MOVIE_ASPECT_KEEP, UI_MENU_MOVIE_ASPECT_STRETCH};
-    opt_choice("MRPG_MOVIE_ASPECT", UI_MENU_MOVIE_ASPECT, movie_aspect, 2, UI_MENU_MOVIE_ASPECT_DESC);
-    opt_slider("MRPG_FOV", UI_MENU_FOV, 70, 140, UI_MENU_FOV_DESC, 5, "%.0f %%");
     static const char *const aniso[] = {"game", "2", "4", "8", "16"};
     const char *aniso_names[] = {menu_text(UI_MENU_ANISO_GAME), "2x", "4x", "8x", "16x"};
     opt_choice_list("MRPG_ANISO", UI_MENU_ANISO, aniso, aniso_names, 5, UI_MENU_ANISO_DESC);
-    row_shadow_scale();
-    row_shadow_range();
-    opt_slider("MRPG_PCSS", UI_MENU_PCSS, 0, 200, UI_MENU_PCSS_DESC, 10, "%.0f %%");
-    opt_slider("MRPG_CONTACT_SHADOWS", UI_MENU_CONTACT_SHADOWS, 0, 100, UI_MENU_CONTACT_SHADOWS_DESC, 10, "%.0f %%");
-    opt_toggle("MRPG_DLAA", UI_MENU_DLAA, UI_MENU_DLAA_DESC);
-    static const UiTextId dlss[] = {UI_MENU_DLSS_DLAA, UI_MENU_DLSS_QUALITY, UI_MENU_DLSS_BALANCED,
-                                    UI_MENU_DLSS_PERFORMANCE, UI_MENU_DLSS_ULTRA};
-    opt_choice("MRPG_DLSS", UI_MENU_DLSS, dlss, 5, UI_MENU_DLSS_DESC);
-    static const UiTextId preset[] = {UI_MENU_DLSS_PRESET_DEFAULT, UI_MENU_DLSS_PRESET_K, UI_MENU_DLSS_PRESET_J};
-    opt_choice("MRPG_DLSS_PRESET", UI_MENU_DLSS_PRESET, preset, 3, UI_MENU_DLSS_PRESET_DESC);
-    static const UiTextId chars[] = {UI_MENU_DLSS_CHARS_OFF, UI_MENU_DLSS_CHARS_LIGHT, UI_MENU_DLSS_CHARS_MEDIUM,
-                                     UI_MENU_DLSS_CHARS_FULL};
-    opt_choice("MRPG_DLSS_CHAR_MASK", UI_MENU_DLSS_CHARS, chars, 4, UI_MENU_DLSS_CHARS_DESC);
-    opt_toggle("MRPG_FXAA", UI_MENU_FXAA, UI_MENU_FXAA_DESC);
     rows_color();
-    opt_group(UI_MENU_HDR_GROUP);
-    opt_toggle("MRPG_HDR", UI_MENU_HDR, UI_MENU_HDR_DESC);
-    opt_slider("MRPG_HDR_PEAK_NITS", UI_MENU_HDR_PEAK, 400, 10000, UI_MENU_HDR_PEAK_DESC, 50, "%.0f");
-    opt_slider("MRPG_HDR_GAME_NITS", UI_MENU_HDR_GAME, 80, 500, UI_MENU_HDR_GAME_DESC, 5, "%.0f");
-    opt_slider("MRPG_HDR_UI_NITS", UI_MENU_HDR_UI, 80, 500, UI_MENU_HDR_UI_DESC, 5, "%.0f");
-    opt_slider("MRPG_HDR_HUE", UI_MENU_HDR_HUE, 0, 100, UI_MENU_HDR_HUE_DESC, 5, "%.0f %%");
     opt_end();
 }
 
@@ -798,87 +723,13 @@ static void row_walk_key(void) {
                     -1, n);
 }
 
-// The note under the prompts. The settings name a folder of prompts (input_prompts_folder: the prompts and the pad
-// layout, as a layout that puts A on the right button needs the face buttons named the other way round), but the game
-// reads its fonts and UI archive once at start (romfs.c overlay_init). While the folder in use differs: "files
-// missing" when the setup did not write the one asked for, why it was left out at start (damaged, a game resolution
-// that is not 16:9, a RomFS mod with the same files, MRPG_ROMFS_PATCHES), else "prompts change after restart", and only then
-// *restart is set: a restart would bring the prompts asked for. NULL when they match.
-static const char *prompts_note(bool *restart) {
-    *restart = false;
-    const char *layout = cfg_value("MRPG_PAD_LAYOUT"), *used = romfs_prompts();
-    const char *want = input_prompts_folder(input_prompts_pick(cfg_get("MRPG_PROMPTS"), layout), layout);
-    if (want == used || (want && used && !strcmp(want, used))) return nullptr;
-    // A game resolution of another shape needs a folder of its own for the prompts (<folder>-<w>x<h>). The setup writes
-    // one for each size the Screen tab offers; at any other size the shape is the reason, not the setup.
-    int off = romfs_prompts_off(want);
-    if (want && !romfs_prompts_ready(want) && off != ROMFS_PROMPTS_SHAPE) return menu_text(UI_MENU_PROMPTS_MISSING);
-    switch (off) {
-    case ROMFS_PROMPTS_FAILED: return menu_text(UI_MENU_PROMPTS_FAILED);
-    case ROMFS_PROMPTS_SHAPE: return menu_text(UI_MENU_PROMPTS_OFF_SHAPE);
-    case ROMFS_PROMPTS_MODS: return menu_text(UI_MENU_PROMPTS_OFF_MODS);
-    case ROMFS_PROMPTS_PATCHES: return menu_text(UI_MENU_PROMPTS_OFF_PATCHES);
-    default: *restart = true; return menu_text(UI_MENU_PROMPTS_RESTART);
-    }
-}
-
-// The confirmation of "Restart now", over the menu; Cancel has the cursor first. Restart writes mrpg.ini, then closes
-// the game as Quit does and starts it again (gfx_window_request_restart). It waits while the game writes a save, and
-// the game stays when mrpg.ini cannot be written, as the new prompts would not come back. From the Cheats tab
-// (restart_rebuild) Restart also lets the next start rebuild for cheats whose last rebuild failed (cheats_rebuild_allow).
-static bool restart_rebuild;
-static void restart_confirm(void) {
-    g_modal = false;
-    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-    if (!ImGui::BeginPopupModal("##restart_confirm", nullptr,
-                                ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize))
-        return;
-    g_modal = true;
-    ImGui::TextUnformatted(menu_text(UI_MENU_RESTART_CONFIRM));
-    bool saving = fs_save_busy() != 0;
-    if (saving || !cfg_last_save_ok())
-        ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.35f, 1), "%s",
-                           menu_text(saving ? UI_MENU_RESTART_SAVING : UI_MENU_SAVE_FAILED));
-    ImGui::Spacing();
-    const char *yes = menu_text(UI_MENU_RESTART_YES), *no = menu_text(UI_MENU_RESET_NO);
-    const ImGuiStyle &st = ImGui::GetStyle();
-    float bw = fmaxf(ImGui::CalcTextSize(yes).x, ImGui::CalcTextSize(no).x) + st.FramePadding.x * 4;
-    bool close = ImGui::Button(no, ImVec2(bw, 0));
-    if (ImGui::IsWindowAppearing()) ImGui::SetItemDefaultFocus();
-    ImGui::SameLine();
-    ImGui::BeginDisabled(saving);
-    if (ImGui::Button(yes, ImVec2(bw, 0)) && cfg_save()) {
-        if (restart_rebuild) cheats_rebuild_allow();
-        gfx_window_request_restart();
-    }
-    ImGui::EndDisabled();
-    if (ImGui::IsKeyPressed(ImGuiKey_Escape, false) || ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight, false))
-        close = true;
-    if (close) {
-        ImGui::CloseCurrentPopup();
-        restart_rebuild = false;
-        opt_focus_key("##restart");   // back on the row it came from
-    }
-    ImGui::EndPopup();
-}
-
 static void tab_controls(float scale) {
     opt_begin("##controls", scale);
     static const UiTextId layout[] = {UI_MENU_PAD_LAYOUT_AUTO, UI_MENU_PAD_LAYOUT_NINTENDO, UI_MENU_PAD_LAYOUT_XBOX};
     opt_choice("MRPG_PAD_LAYOUT", UI_MENU_PAD_LAYOUT, layout, 3, UI_MENU_PAD_LAYOUT_DESC, pad_layout_note());
-    static const UiTextId prompts[] = {UI_MENU_PROMPTS_NINTENDO, UI_MENU_PROMPTS_XBOX, UI_MENU_PROMPTS_PC};
-    bool restart;
-    const char *note = prompts_note(&restart);
-    opt_choice("MRPG_PROMPTS", UI_MENU_PROMPTS, prompts, 3, UI_MENU_PROMPTS_DESC, note);
-    bool ask = restart && opt_button("##restart", UI_MENU_RESTART, UI_MENU_RESTART_DESC);
-    opt_toggle("MRPG_MOTION", UI_MENU_MOTION, UI_MENU_MOTION_DESC);
     opt_slider("MRPG_RUMBLE_STRENGTH", UI_MENU_RUMBLE_STRENGTH, 0, 300, UI_MENU_RUMBLE_STRENGTH_DESC, 10, "%.0f %%");
     opt_slider("MRPG_RUMBLE_CURVE", UI_MENU_RUMBLE_CURVE, 0.2f, 1.5f, UI_MENU_RUMBLE_CURVE_DESC, 0.05f, "%.2f");
     opt_toggle("MRPG_RUMBLE_TRIGGERS", UI_MENU_RUMBLE_TRIGGERS, UI_MENU_RUMBLE_TRIGGERS_DESC);
-    static const UiTextId mouse_modes[] = {UI_MENU_MOUSE_STICK, UI_MENU_MOUSE_DIRECT};
-    opt_choice("MRPG_MOUSE_MODE", UI_MENU_MOUSE_MODE, mouse_modes, 2, UI_MENU_MOUSE_MODE_DESC);
-    opt_slider("MRPG_MOUSE_SENS", UI_MENU_MOUSE_SENS, 0, 10, UI_MENU_MOUSE_SENS_DESC, 0.1f, "%.1f");
-    opt_toggle("MRPG_MENU_CURSOR", UI_MENU_MENU_CURSOR, UI_MENU_MENU_CURSOR_DESC);
     row_walk_key();
     opt_slider("MRPG_WALK_SCALE", UI_MENU_WALK_SCALE, 0.2f, 0.9f, UI_MENU_WALK_SCALE_DESC, 0.01f, "%.2f");
     // Analog sticks: one dead zone row per stick, falling back to MRPG_STICK_DEADZONE (both sticks) while unset. With
@@ -894,12 +745,9 @@ static void tab_controls(float scale) {
                pad ? stick_note[0] : nullptr, "MRPG_STICK_DEADZONE");
     opt_slider("MRPG_RSTICK_DEADZONE", UI_MENU_RSTICK_DEADZONE, 0, 50, UI_MENU_STICK_DEADZONE_DESC, 1, "%.0f %%",
                pad ? stick_note[1] : nullptr, "MRPG_STICK_DEADZONE");
-    opt_slider("MRPG_STICK_SENS", UI_MENU_STICK_SENS, 0.1f, 3, UI_MENU_STICK_SENS_DESC, 0.05f, "%.2f");
     binds_rows(scale);
     opt_end();
     binds_after_page();
-    if (ask) ImGui::OpenPopup("##restart_confirm");   // at the level BeginPopupModal looks it up
-    restart_confirm();
 }
 
 static void tab_menu(float scale) {
@@ -1088,111 +936,11 @@ static void tab_advanced(float scale) {
     }
 }
 
-static const UiTextId kTabNames[TAB_COUNT] = {UI_MENU_TAB_SCREEN,   UI_MENU_TAB_GAME,   UI_MENU_TAB_SOUND,
-                                              UI_MENU_TAB_CONTROLS, UI_MENU_TAB_AMIIBO, UI_MENU_TAB_MENU,
-                                              UI_MENU_TAB_ADVANCED, UI_MENU_TAB_MODS,   UI_MENU_TAB_CHEATS};
+static const UiTextId kTabNames[TAB_COUNT] = {UI_MENU_TAB_SCREEN, UI_MENU_TAB_GAME, UI_MENU_TAB_SOUND,
+                                              UI_MENU_TAB_CONTROLS, UI_MENU_TAB_MENU, UI_MENU_TAB_ADVANCED};
 static int g_tab;               // the tab shown
 static int g_tab_request = -1;  // select this tab at the next layout; -1 none
 static int g_focus_page = -1;   // this tab's first row takes the cursor once it is shown; -1 none
-
-// A row of another tab: that tab opens with the row under the cursor.
-static void go_to(int tab, const char *key) {
-    g_tab_request = tab;
-    opt_focus_key(key);
-}
-
-// ---- Mods: the mods folder (mods.c) with switches and the load order, then the port's own patches. The folder was
-// read at start; the rows change the order and switches for the next start.
-static void mods_builtin_rows(void) {
-    opt_group(UI_MENU_MODS_BUILTIN);
-    char fps[64], res[64];
-    const char *lim = cfg_value("MRPG_FPS_LIMIT");
-    if (!strcmp(lim, "display")) snprintf(fps, sizeof fps, "%s", menu_text(UI_MENU_FPS_DISPLAY));
-    else snprintf(fps, sizeof fps, "%s FPS", lim);
-    if (opt_button("##mods_fps60", UI_MENU_MODS_FPS60, UI_MENU_MODS_FPS60_DESC, fps)) go_to(TAB_GAME, "MRPG_FPS_LIMIT");
-    int w = 0, h = 0;
-    sscanf(cfg_value("MRPG_OUTPUT_RES"), "%dx%d", &w, &h);
-    snprintf(res, sizeof res, "%d × %d", w, h);   // U+00D7, as row_output_res shows it
-    if (opt_button("##mods_res", UI_MENU_MODS_RES, UI_MENU_MODS_RES_DESC, res)) go_to(TAB_SCREEN, "MRPG_OUTPUT_RES");
-    opt_toggle("MRPG_REALTIME", UI_MENU_REALTIME, UI_MENU_REALTIME_DESC);
-    opt_toggle("MRPG_CLOTH_REALTIME", UI_MENU_CLOTH_REALTIME, UI_MENU_CLOTH_REALTIME_DESC);
-    opt_toggle("MRPG_HIGHFPS_FIX", UI_MENU_HIGHFPS_FIX, UI_MENU_HIGHFPS_FIX_DESC);
-    opt_toggle("MRPG_CLIMB_FIX", UI_MENU_CLIMB_FIX, UI_MENU_CLIMB_FIX_DESC);
-    opt_button("##mods_quickmenu", UI_MENU_MODS_QUICKMENU, UI_MENU_MODS_QUICKMENU_DESC,
-               menu_text(romfs_patches_loaded() ? UI_MENU_ON : UI_MENU_OFF));
-}
-
-static void tab_mods(float scale) {
-    opt_begin("##mods", scale);
-    opt_group(UI_MENU_MODS_INSTALLED);
-    int n = mods_count();
-    if (!n) opt_text(UI_MENU_MODS_NONE);
-    const char *after = mods_changed() ? menu_text(UI_MENU_AFTER_RESTART) : nullptr;
-    for (int i = 0; i < n; i++) {
-        const ModInfo *m = mods_at(i);
-        char id[32], desc[1536];
-        snprintf(id, sizeof id, "##mod%d", i);
-        char over[512] = "", other[512] = "";
-        if (m->overridden) snprintf(over, sizeof over, menu_text(UI_MENU_MODS_OVERRIDDEN), m->overridden, m->overridden_by);
-        if (m->other_version) snprintf(other, sizeof other, menu_text(UI_MENU_MODS_OTHER_VERSION), m->other_version);
-        char cheat[256] = "";
-        if (m->kind & MOD_CHEATS) {   // its cheats as read at start, or the file they come from
-            int count = 0;
-            for (int j = 0; j < cheats_count(); j++)
-                count += !strcmp(cheats_info(j)->mod, m->name) && cheats_info(j)->kind != CHEAT_HEADING;
-            if (count) snprintf(cheat, sizeof cheat, menu_text(UI_MENU_MODS_CHEATS), count);
-            else snprintf(cheat, sizeof cheat, menu_text(UI_MENU_MODS_CHEATS_FILE), cheats_file());
-        }
-        char code[512] = "", problem[512] = "";
-        if (m->nsets && m->overrides[0])
-            snprintf(code, sizeof code, menu_text(UI_MENU_MODS_REPLACES_BUILTIN), m->nsets, m->overrides);
-        else if (m->nsets || m->ndata)
-            snprintf(code, sizeof code, menu_text(UI_MENU_MODS_EXEFS_ON), m->nsets + m->ndata);
-        switch (m->problem) {
-        case MOD_EMPTY: snprintf(problem, sizeof problem, "%s", menu_text(UI_MENU_MODS_EMPTY)); break;
-        case MOD_PLUGIN: snprintf(problem, sizeof problem, "%s", menu_text(UI_MENU_MODS_SUBSDK)); break;
-        case MOD_EXEFS_LATER: snprintf(problem, sizeof problem, "%s", menu_text(UI_MENU_MODS_EXEFS_LATER)); break;
-        case MOD_EXEFS_UNSUPPORTED:
-            snprintf(problem, sizeof problem, menu_text(UI_MENU_MODS_EXEFS_UNSUPPORTED), m->note);
-            break;
-        case MOD_EXEFS_OTHER: snprintf(problem, sizeof problem, "%s", menu_text(UI_MENU_MODS_EXEFS_OTHER)); break;
-        case MOD_BAD_NAME: snprintf(problem, sizeof problem, "%s", menu_text(UI_MENU_MODS_BAD_NAME)); break;
-        default: break;
-        }
-        int k = snprintf(desc, sizeof desc, menu_text(UI_MENU_MODS_ROW_DESC), m->replaced, m->added);
-        const char *parts[] = {over, other, cheat, code, problem, menu_text(UI_MENU_MODS_MOVE_HINT)};
-        for (const char *part : parts)
-            if (*part && k >= 0 && k < (int)sizeof desc) k += snprintf(desc + k, sizeof desc - k, "\n\n%s", part);
-        const char *note = m->enabled && m->problem != MOD_OK ? menu_text(UI_MENU_MODS_UNUSED) : after;
-        int s = opt_text_row(id, m->name, menu_text(m->enabled ? UI_MENU_ON : UI_MENU_OFF), note, desc, true);
-        if (s == 2 || s == -1 || s == 1) {
-            mods_set_enabled(i, !m->enabled);
-            opt_save_soon();
-        } else if ((s == 3 && i > 0) || (s == 4 && i + 1 < n)) {
-            int to = s == 3 ? i - 1 : i + 1;
-            mods_move(i, to - i);
-            snprintf(id, sizeof id, "##mod%d", to);
-            opt_focus_key(id);   // the cursor follows the mod
-            opt_save_soon();
-        }
-    }
-    bool rebuild =
-        cheats_rebuild_pending() && opt_button("##restart", UI_MENU_CHEATS_REBUILD, UI_MENU_CHEATS_REBUILD_DESC);
-    static uint64_t open_failed;   // plat_now_ns until which the button says it failed
-    if (opt_button("##mods_open", UI_MENU_MODS_OPEN, UI_MENU_MODS_OPEN_DESC,
-                   plat_now_ns() < open_failed ? menu_text(UI_MENU_ACTION_FAILED) : "")) {
-        bool ok = mods_dir()[0] != 0;
-        if (ok) plat_file_mkdir_p(mods_dir());
-        if (!ok || !plat_open_folder(mods_dir())) open_failed = plat_now_ns() + 3000000000ull;
-    }
-    mods_builtin_rows();
-    opt_end();
-    if (rebuild) {
-        restart_rebuild = true;
-        ImGui::OpenPopup("##restart_confirm");
-    }
-    restart_confirm();
-}
 
 // ---- the window: title, tabs (L / R or Q / E switch), the page, and the bottom row with "Continue" and "Quit game".
 // B on the gamepad and Esc close it.
@@ -1238,18 +986,9 @@ static void layout_menu(uint32_t w, uint32_t h, float scale) {
             switch (k) {
             case TAB_SCREEN: tab_screen(scale); break;
             case TAB_GAME: tab_game(scale); break;
-            case TAB_MODS: tab_mods(scale); break;
             case TAB_SOUND: tab_sound(scale); break;
             case TAB_CONTROLS: tab_controls(scale); break;
-            case TAB_AMIIBO: tab_amiibo(scale); break;
             case TAB_MENU: tab_menu(scale); break;
-            case TAB_CHEATS:
-                if (tab_cheats(scale)) {
-                    restart_rebuild = true;
-                    ImGui::OpenPopup("##restart_confirm");
-                }
-                restart_confirm();
-                break;
             case TAB_ADVANCED: tab_advanced(scale); break;
             }
             ImGui::EndTabItem();

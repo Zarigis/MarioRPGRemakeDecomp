@@ -106,10 +106,14 @@ A pad that reports its face buttons swapped (A/B and X/Y, as some GuliKit models
 bind_A = pad:south, key:E
 bind_B = pad:east, key:lshift
 bind_X = pad:west, key:space
-bind_Y = pad:north, key:mouse_l
+bind_Y = pad:north, key:t
 ```
 
 ## Mouse camera
+
+> Super Mario RPG: not used. The pointer is never hidden or confined to the window (`runtime/input.c`,
+> `input_cursor_allowed`), the mouse turns nothing and its buttons are not bound. This section describes the TotK code
+> base.
 
 `mouse_mode = direct` (the default) turns the camera by the raw mouse motion on games 1.4.3 and 1.2.1, through hooks in the game's camera code (`runtime/mouse_direct.c`, the `mouse_direct` sites of `recomp/patches-v143.txt` and `recomp/patches-v121.txt`). None of them changes a step of the gamepad alone. The free-orbit camera receives raw-count
 angular increments at its final spherical-angle output: 0.08 degrees per count on both axes at sensitivity 1 (about
@@ -198,6 +202,10 @@ In stick-emulation mode, mouse motion (raw input) becomes right-stick deflection
 The stick direction bits (`StickLLeft` to `StickRDown`) are derived from the sticks at 50% deflection. A gamepad plugged in later is picked up within one second; with none connected the log says `input: no gamepad`.
 
 ## Mouse in the game's menus
+
+> Super Mario RPG: not used. The pointer is never hidden or confined to the window (`runtime/input.c`,
+> `input_cursor_allowed`), the mouse turns nothing and its buttons are not bound. This section describes the TotK code
+> base.
 
 On game 1.4.3, while one of the game's menus has its focus box (the frame the d-pad moves: the title, the save list, the inventory and its System tab, Options, shops, dialogue choices), the cursor is released from the mouse camera and shown in the middle of the window. A focus gap of up to 300 ms (a tab switch, a popup opening: the game drops the focus box for a frame or two) keeps the pointer where it is instead of capturing and centring it again. The item under the pointer takes the focus as if the d-pad had moved there, with the game's highlight, sound and description; a left click is A on it, a right click is B. The middle and side mouse buttons keep their bindings (bound to L and R they turn the tabs), and T presses Y (sort). The keys and the pad keep working, and the focus moves only when the pointer moves. This happens only while the keyboard and mouse are the device used last: after a gamepad button press or a stick pushed past half way the menus are as on the console, with no pointer, until the mouse moves or a key is pressed (`input_kbm_last` in `runtime/input.c`). The ability wheel, the d-pad strips, Autobuild and the Purah Pad's camera stay gameplay: the mouse keeps the camera there. The map has no focus box; it is found in `eui::ScreenMgr`'s list of open screens (every 100 ms: the Purah Pad's frame `AppMenuOverlay_00` with `AppMap_00` and the menu background `AppMenuBG_00`), and there the mouse moves the map's cursor as the left stick does, with the cursor still captured, and the scroll wheel zooms: each notch is a full-tilt push of the right stick (the map's zoom) for 100 ms with 50 ms of neutral after it, up (in) for a turn away from you; a fast scroll's notches wait their turn (at most four), a turn the other way drops them. The Scope opens the same map screen without the menu background and keeps the mouse camera. When the menu closes the cursor is captured again.
 
