@@ -20,7 +20,7 @@ files: it stays in the ignored build folder (the default mods folder is build/<v
 --outline turns on the outline of the bundle's material (outline); with --outline-color auto, the default, the port
 draws it light around dark text and dark around light text (runtime/text_outline.c).
 
-  python tools/font_mod.py --font C:/Windows/Fonts/Gabriola.ttf [--bundle regular] [--name font-test] [--outline 0.26]
+  python tools/font_mod.py --font C:/Windows/Fonts/Gabriola.ttf [--bundle regular] [--name font-test] [--outline 0.07]
 """
 import argparse
 import json
@@ -93,14 +93,17 @@ def has_glyph(font, ch, notdef):
     return im.tobytes() != notdef[1]
 
 
-def outline(env, width, color):
+def outline(env, em, px_per_em, color):
     """Turns on the outline of the bundle's material (TextMeshPro's Distance Field shader, which the font asset draws
     with unless a text picks another material). The shader (TMPro_Properties.cginc GetColor) centres an outline band of
     _OutlineWidth * _ScaleRatioA distance units on the glyph's edge, and the vertex shader moves that edge out by
     _FaceDilate * _ScaleRatioA / 2 units; with the dilation equal to the width, the letters keep their weight and the
     whole band lies outside them. A distance unit is 2 * _GradientScale atlas pixels, so the band reaches
-    width * _ScaleRatioA * 2 * _GradientScale atlas pixels out, which has to stay inside the padding. _ScaleRatioA is
-    recomputed as TextMeshPro's ShaderUtilities.UpdateShaderRatios does (the editor does it there; the player does not)."""
+    width * _ScaleRatioA * 2 * _GradientScale atlas pixels out, which has to stay inside the padding. The width asked
+    for is em, a fraction of the em, so fonts with other paddings (the bold and ultra bundles have wider ones, so a
+    distance unit spans more pixels) get the same outline: em * px_per_em atlas pixels. _ScaleRatioA is recomputed
+    as TextMeshPro's ShaderUtilities.UpdateShaderRatios does (the editor does it there; the player does not); it
+    depends on the width, so the two are solved together."""
     # auto: magenta, the marker for the port's shader (runtime/text_outline.c) to pick the outline from the text's colour
     rgb = [1, 0, 1] if color == 'auto' else [int(color.lstrip('#')[i:i + 2], 16) / 255 for i in (0, 2, 4)]
     for o in env.objects:
@@ -110,16 +113,22 @@ def outline(env, width, color):
         fl, co = dict(m['m_SavedProperties']['m_Floats']), dict(m['m_SavedProperties']['m_Colors'])
         if '_OutlineWidth' not in fl:
             continue
-        fl['_OutlineWidth'], fl['_FaceDilate'] = width, width
-        co['_OutlineColor'] = {'r': rgb[0], 'g': rgb[1], 'b': rgb[2], 'a': 1.0}
+        grad, px = fl['_GradientScale'], em * px_per_em
         weight = max(fl['_WeightNormal'], fl['_WeightBold']) / 4
-        t = max(1.0, weight + fl['_FaceDilate'] + fl['_OutlineWidth'] + fl['_OutlineSoftness'])
-        fl['_ScaleRatioA'] = (fl['_GradientScale'] - 1) / (fl['_GradientScale'] * t)
+        width = 0.0
+        for _ in range(8):   # width from the ratio, the ratio from the width: settles in a step or two
+            t = max(1.0, weight + 2 * width + fl['_OutlineSoftness'])
+            ratio = (grad - 1) / (grad * t)
+            width = px / (ratio * 2 * grad)
+        if px > grad - 1:
+            raise SystemExit(f'an outline of {px:.1f} atlas px does not fit the padding of {grad - 1:.0f}')
+        fl['_OutlineWidth'], fl['_FaceDilate'], fl['_ScaleRatioA'] = width, width, ratio
+        co['_OutlineColor'] = {'r': rgb[0], 'g': rgb[1], 'b': rgb[2], 'a': 1.0}
         m['m_SavedProperties']['m_Floats'] = list(fl.items())
         m['m_SavedProperties']['m_Colors'] = list(co.items())
         o.save_typetree(m)
-        print(f'{m["m_Name"]}: outline {width} #{color.lstrip("#")}, reaching '
-              f'{width * fl["_ScaleRatioA"] * 2 * fl["_GradientScale"]:.1f} atlas px past the letters')
+        print(f'{m["m_Name"]}: outline {em} em, {px:.1f} atlas px past the letters (_OutlineWidth {width:.3f}), '
+              f'#{color.lstrip("#")}')
 
 
 def main():
@@ -131,7 +140,8 @@ def main():
     ap.add_argument('--mods', help='the mods folder (default build/<version>/mods, next to mrpg.exe)')
     ap.add_argument('--scale', type=float, default=1.0, help='size factor on top of the capital-height match')
     ap.add_argument('--outline', type=float, default=0.0,
-                    help="outline width in the shader's units (0 none; 0.26 is about 1 SNES pixel, 0.5 the most the atlas padding holds)")
+                    help='outline width as a fraction of the em (0 none; 0.07 is about 1 SNES pixel at the dialogue '
+                         'size; the most the regular font\'s padding holds is about 0.13)')
     ap.add_argument('--outline-color', default='auto',
                     help='outline colour, sRGB hex; auto (default): light around dark text and dark around light text, '
                          'drawn by the port (runtime/text_outline.c, settings text_outline_light and _dark)')
@@ -207,7 +217,7 @@ def main():
     face['m_FamilyName'] = f'{face["m_FamilyName"]} ({Path(a.font).stem})'
     mono_obj.save_typetree(fa)
     if a.outline:
-        outline(env, a.outline, a.outline_color)
+        outline(env, a.outline, size, a.outline_color)
 
     rgba = Image.merge('RGBA', [Image.new('L', (W, H), 255)] * 3 + [Image.fromarray(atlas)])
     tex.image = rgba
