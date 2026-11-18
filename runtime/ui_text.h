@@ -97,6 +97,9 @@ typedef enum {
     UI_MENU_MODS_QUICKMENU, UI_MENU_MODS_QUICKMENU_DESC,
     // the port's own Super Nintendo touches (sky_ground.c, text_outline.c)
     UI_MENU_CAMERA_STICK, UI_MENU_CAMERA_STICK_DESC,   // input.c camera_stick
+    UI_MENU_FREE_DIRECTION, UI_MENU_FREE_DIRECTION_DESC,   // recomp/patches-v101.txt, set freedir
+    UI_MENU_UI_SHARP, UI_MENU_UI_SHARP_DESC,   // ui_sharp.c
+    UI_MENU_FPS_165, UI_MENU_FPS_240,
     UI_MENU_SKY_GROUND, UI_MENU_SKY_GROUND_DESC, UI_MENU_SKY_SNES, UI_MENU_SKY_GAME,
     UI_MENU_TEXT_COLORS_NOTE,    // above the four text colour rows: they need a font mod with auto outlines
     UI_MENU_TEXT_WHITE, UI_MENU_TEXT_WHITE_DESC, UI_MENU_TEXT_DARK, UI_MENU_TEXT_DARK_DESC,

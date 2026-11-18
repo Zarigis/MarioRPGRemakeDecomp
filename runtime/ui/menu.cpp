@@ -554,9 +554,10 @@ static void row_game_lang(void) {
 // The frame limit (frame_rate.c): unset, the older fps60 = 0 still means 30. The monitor choice shows the rate it gives.
 static void row_fps_limit() {
     // 40 and 45: the Steam Deck's screen runs at 40 to 60 Hz (the OLED to 90); 40 divides 40 and 120 Hz evenly
-    static const char *const vals[] = {"30", "40", "45", "60", "90", "120", "144", "display"};
-    static const UiTextId ids[] = {UI_MENU_FPS_30, UI_MENU_FPS_40,  UI_MENU_FPS_45,  UI_MENU_FPS_60,
-                                   UI_MENU_FPS_90, UI_MENU_FPS_120, UI_MENU_FPS_144, UI_MENU_FPS_DISPLAY};
+    static const char *const vals[] = {"30", "40", "45", "60", "90", "120", "144", "165", "240", "display"};
+    static const UiTextId ids[] = {UI_MENU_FPS_30,  UI_MENU_FPS_40,  UI_MENU_FPS_45,  UI_MENU_FPS_60,
+                                   UI_MENU_FPS_90,  UI_MENU_FPS_120, UI_MENU_FPS_144, UI_MENU_FPS_165,
+                                   UI_MENU_FPS_240, UI_MENU_FPS_DISPLAY};
     enum { N = sizeof vals / sizeof *vals };
     const char *names[N];
     for (int i = 0; i < N; i++) names[i] = menu_text(ids[i]);
@@ -638,6 +639,7 @@ static void tab_screen(float scale) {
         opt_choice_list("MRPG_SHADOW_MAP_SCALE", UI_MENU_SHADOW_SCALE, vals, names, 4, UI_MENU_SHADOW_SCALE_DESC);
     }
     opt_toggle("MRPG_FXAA", UI_MENU_FXAA, UI_MENU_FXAA_DESC);   // vk_fxaa.c
+    opt_toggle("MRPG_UI_SHARP", UI_MENU_UI_SHARP, UI_MENU_UI_SHARP_DESC);   // ui_sharp.c
     static const UiTextId up[] = {UI_MENU_UPSCALER_FSR, UI_MENU_UPSCALER_BILINEAR};
     opt_choice("MRPG_UPSCALER", UI_MENU_UPSCALER, up, 2, UI_MENU_UPSCALER_DESC);
     opt_slider("MRPG_SHARPNESS", UI_MENU_SHARPNESS, 0, 100, UI_MENU_SHARPNESS_DESC, 5, "%.0f %%");
@@ -975,6 +977,7 @@ static void mods_builtin_rows(void) {
     opt_group(UI_MENU_MODS_BUILTIN);
     opt_toggle("MRPG_HIDE_GAUGE", UI_MENU_HIDE_GAUGE, UI_MENU_HIDE_GAUGE_DESC);   // recomp/patches-v101.txt, set nogauge
     opt_toggle("MRPG_CAMERA_STICK", UI_MENU_CAMERA_STICK, UI_MENU_CAMERA_STICK_DESC);   // input.c camera_stick
+    opt_toggle("MRPG_FREE_DIRECTION", UI_MENU_FREE_DIRECTION, UI_MENU_FREE_DIRECTION_DESC);   // set freedir
     row_colour("MRPG_SKY_GROUND", UI_MENU_SKY_GROUND, UI_MENU_SKY_GROUND_DESC, "1839e0", UI_MENU_SKY_SNES, "game",
                UI_MENU_SKY_GAME);   // sky_ground.c
     // text_outline.c: the four colours of a font mod with auto outlines
