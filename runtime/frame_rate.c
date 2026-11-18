@@ -27,7 +27,11 @@
 // the pointer at main+0x3a648a8: class, static fields at +0xb8, Instance at +0. A mini game that steps by elapsed
 // time loses nothing but frames by this, but is left at the limit when known (TIMED_MINI_GAMES): Melody Bay, the
 // tadpole music game at Tadpole Pond, steps by a float timer (MelodyBay.Manager._timer); its Instance stayed set for
-// minutes at a time, and the game was held to 60 Hz all that while.
+// minutes at a time, and the game was held to 60 Hz all that while. The Yoshi race (MiniGameYoshiRace) stays the
+// Instance while the player is anywhere around Yo'ster Isle, before and after a race: it is held only while the race
+// runs, which its state says. MiniGameYoshiRace.Update (main+0x1f64f00) calls the delegate in the game's _main_state
+// (+0x20), set to state_initialize, state_gaming or state_finalize; the race is state_gaming (main+0x1f650c0), the
+// delegate's code pointer at +0x10 (Il2CppDelegate.method_ptr).
 // Other frame-counted code may exist elsewhere; it has to be found by playing.
 //
 // The game clock (frame_step_ticks) advances by the pacer's nominal period per present, not by
@@ -141,6 +145,15 @@ static int mini_counts_frames(uint64_t game, char *name, size_t n) {
     return last;
 }
 
+// While mini game object game of class name is up: 0 when its own state says it is not playing (the Yoshi race outside
+// its race), else 1.
+static int mini_playing(uint64_t game, const char *name) {
+    if (strcmp(name, "MiniGameYoshiRace")) return 1;
+    uint64_t state = 0, fn = 0;
+    return plat_mem_read(game + 0x20, &state, 8) && state > 0x10000 && plat_mem_read(state + 0x10, &fn, 8) &&
+           fn == MOD_MAIN_BASE + 0x1f650c0;
+}
+
 static void locked_read(void) {
     uint64_t bm = class_statics(0x3a57e48), mg = class_statics(0x3a648a8), inst = 0, game = 0;
     int32_t rate = 0;
@@ -149,14 +162,15 @@ static void locked_read(void) {
     int mini = mg && plat_mem_read(mg, &game, 8) && game > 0x10000 && !(game & 7);
     static uint64_t last_game;
     static int last_mini;
+    static char last_name[64];
     char name[64] = "?";
     if (mini && game != last_game) {   // a new mini game: is it counted in frames?
-        last_game = game, last_mini = mini_counts_frames(game, name, sizeof name);
+        last_game = game, last_mini = mini_counts_frames(game, last_name, sizeof last_name);
         if (!last_mini && frame_step_cap_ns() != VBLANK_NS)
-            rt_log("frame rate: mini game %s steps by time: stays at the frame limit", name);
+            rt_log("frame rate: mini game %s steps by time: stays at the frame limit", last_name);
     }
     if (!mini) last_game = 0;
-    int on = battle ? 1 : mini && last_mini ? 2 : 0;
+    int on = battle ? 1 : mini && last_mini && mini_playing(game, last_name) ? 2 : 0;
     if (on != atomic_load_explicit(&locked, memory_order_relaxed)) {
         atomic_store_explicit(&locked, on, memory_order_relaxed);
         if (on == 2) class_name(game, name, sizeof name);
