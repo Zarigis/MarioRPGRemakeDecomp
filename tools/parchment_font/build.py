@@ -406,13 +406,13 @@ def to_nib_space():
     return Transform().scale(NIB_H / NIB_W, 1).rotate(-a)
 
 
-def stroke(d, seed):
-    """Stroke one centreline with the elliptical nib, return a pathops Path."""
+def stroke(d, seed, k=1.0):
+    """Stroke one centreline with the elliptical nib (scaled by k), return a pathops Path."""
     fwd = to_nib_space()
     src = pathops.Path()
     target = WarpPen(TransformPen(src.getPen(), fwd), seed)
     parse_path(d, FacetPen(target, seed + d) if FACET > 0 else target)
-    src.stroke(NIB_H, pathops.LineCap.ROUND_CAP, pathops.LineJoin.ROUND_JOIN, 4)
+    src.stroke(NIB_H * k, pathops.LineCap.ROUND_CAP, pathops.LineJoin.ROUND_JOIN, 4)
     src.convertConicsToQuads()
     out = pathops.Path()
     src.draw(TransformPen(out.getPen(), fwd.inverse()))
@@ -475,7 +475,8 @@ def build_outline(name, g):
 
 def _build_outline(name, g):
     seed = f"ph-{name}"
-    pieces = [stroke(d, seed) for d in g["s"]] + [fill(d, seed) for d in g["f"]]
+    nibs = g.get("nib") or [1.0] * len(g["s"])
+    pieces = [stroke(d, seed, k) for d, k in zip(g["s"], nibs)] + [fill(d, seed) for d in g["f"]]
     # Each piece is already simplified (outer/hole windings consistent), so
     # concatenating them and simplifying with the winding rule is a union.
     # pathops can fail on near-coincident geometry (e.g. a fill meeting a

@@ -70,6 +70,11 @@ repository)
   (its own source and BSD 3-Clause licence in that folder), put into the game's three text fonts by
   [tools/font_mod.py](tools/font_mod.py), which takes any TrueType font. With `--outline` the letters get an outline
   that the port colours by the text: light around dark text, dark around light text.
+
+  ![Parchment Hand in the parchment dialogue box: "the quick brown fox jumps over the lazy dog." in lowercase and in capitals](docs/images/dialogue_demo.png)
+
+  Both mods together, as laid out at 1920x1080 (drawn by [tools/dialogue_demo.py](tools/dialogue_demo.py), not a
+  screenshot).
 - **A parchment dialogue box:** [tools/dialog_box_mod.py](tools/dialog_box_mod.py) redraws the box as Super
   Nintendo-style mottled parchment, with square corners and uneven edges, or recolours the game's own.
 

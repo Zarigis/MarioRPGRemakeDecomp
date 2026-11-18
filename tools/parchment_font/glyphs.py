@@ -63,12 +63,14 @@ def _maxx(d):
     return max(nums[0::2]) if nums else 0
 
 
-def G(s=(), f=(), adv=None, rough=None):
+def G(s=(), f=(), adv=None, rough=None, nib=None):
+    """nib: {stroke index: pen size factor} to draw some strokes thinner."""
     s, f = list(s), list(f)
     if adv is None:
         mx = max([_maxx(d) for d in s + f] or [0])
         adv = math.floor(mx + 0.5) + 2
-    return dict(s=[px(d) for d in s], f=[px(d) for d in f], adv=adv * PX, src_s=s, src_f=f, rough=rough)
+    return dict(s=[px(d) for d in s], f=[px(d) for d in f], adv=adv * PX, src_s=s, src_f=f, rough=rough,
+                nib=[(nib or {}).get(i, 1.0) for i in range(len(s))])
 
 
 def mirror_x(d, w):
@@ -293,10 +295,11 @@ GLYPHS.update({
     # round curve (deliberately rounder than the upscaled target).
     "n": G(["M 0 7.0 L 0 0",
             "M 0 5.4 C 0.4 6.5 1.4 7.05 2.4 7.05 C 3.4 7.05 4 6.3 4 5.3 L 4 0"]),
-    "o": G(["M 2.6 7 C 4 7 5 6 5 4.4 L 5 3.2 C 5 1.2 3.8 0 2.2 0 C 0.8 0 0 1.2 0 3 L 0 4.4 C 0 6 1.2 7 2.6 7 Z"]),
+    "o": G(["M 2.9 7 C 4.2 7 5 6.3 5 5.0 L 5 3.4 C 5 1.4 4.0 0 2.4 0 C 1.0 0 0.1 0.9 0 2.4 "
+            "C -0.05 3.2 0 3.8 0.1 4.4 C 0.35 6.0 1.4 7 2.9 7 Z"]),
     # Like P: the bowl starts with a straight upward slant off the stem, then
     # rounds all the way back to it. Stem tops out at row 6.
-    "p": G([_P_BOWL, scaled(_P_BOWL, 4.4, 4.0, 0.9, 0.94), "M 0 6.2 L 0 -1.1"]),
+    "p": G([_P_BOWL, "M 0 6.2 L 0 -1.1"], nib={0: 0.82}),
     # Leaning bowl: the top sits right of centre and rounds down the upper
     # left; the bottom climbs diagonally back to the stem. Short descender.
     "q": G(["M 5 6.6 L 5 -1.0",
