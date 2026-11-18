@@ -125,3 +125,11 @@ site nogauge main 1fc8c10 f000d475 f000d475 528000c1 aa1f03e2 97df8810          
 site nogauge main 1fc8c14 f94026d6 f94026d6 aa1f03e1 97df445f                   # ldr x22; get_gameObject
 site nogauge main 1fc8c18 f9473eb5 f9473eb5 2a1f03e1 aa1f03e2 97df4a8e          # ldr x21; SetActive(false)
 site nogauge main 1fc8c1c 2a1f03f4 2a1f03f4 f9402260 2a1f03e1 aa1f03e2 97df4a8d # mov w20, wzr; ExplainMessage off
+
+# Vibration with menu sounds (MRPG_SOUND_RUMBLE, menu "Menu vibration"). The game ties a vibration to some of its sound
+# cues (data_tbl/vibration_data.tbl, cue id to vibration id; SoundObject.SetCue looks it up), and SoundObject.Play
+# (main+0x1c23c64) starts it with PadVibration.Play(id) as the sound plays: the buzz of a menu choice, of picking a
+# battle command. The vibrations the game drives itself (Battle.BattleVibration through VibrationUnit.update, main+0x1b082a8:
+# hits and the like) do not go through it. With the setting off the call is skipped.
+set menurumble MRPG_SOUND_RUMBLE_OFF 0
+site menurumble main 1c23c64 97ffc937 d503201f   # bl PadVibration.Play -> nop

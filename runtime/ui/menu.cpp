@@ -746,6 +746,8 @@ static void tab_controls(float scale) {
     opt_slider("MRPG_RUMBLE_STRENGTH", UI_MENU_RUMBLE_STRENGTH, 0, 300, UI_MENU_RUMBLE_STRENGTH_DESC, 10, "%.0f %%");
     opt_slider("MRPG_RUMBLE_CURVE", UI_MENU_RUMBLE_CURVE, 0.2f, 1.5f, UI_MENU_RUMBLE_CURVE_DESC, 0.05f, "%.2f");
     opt_toggle("MRPG_RUMBLE_TRIGGERS", UI_MENU_RUMBLE_TRIGGERS, UI_MENU_RUMBLE_TRIGGERS_DESC);
+    // recomp/patches-v101.txt, set menurumble: the key names the opposite (1 skips them), so the row is inverted
+    opt_toggle("MRPG_SOUND_RUMBLE_OFF", UI_MENU_SOUND_RUMBLE, UI_MENU_SOUND_RUMBLE_DESC, true);
     // Walking (input.c move_tilt): speed by the stick's tilt, and the tilt at which Mario starts to move
     opt_toggle("MRPG_STICK_SPEED", UI_MENU_STICK_SPEED, UI_MENU_STICK_SPEED_DESC);
     opt_slider("MRPG_MOVE_DEADZONE", UI_MENU_MOVE_DEADZONE, 5, 60, UI_MENU_MOVE_DEADZONE_DESC, 5, "%.0f %%");

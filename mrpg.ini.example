@@ -207,6 +207,9 @@
 # text_outline_dark = 22327a
 # text_white = d2d2fa
 # text_dark = 361a0c
+# The short vibration the game plays with some sounds (menu choices, battle commands): 1 turns it off; hits and other
+# vibrations the game drives itself stay. Read at start.
+# sound_rumble_off = 0
 # Dynamic resolution: 1 lets the game lower the scene to 90 or 80 % of that size, 0 keeps it at 100 %. The game decides
 # by a cost estimate made for the Switch, which grows with the scene's width and ignores how fast your GPU is: a
 # scene wider than about 3000 pixels can drop to 80 % on any GPU. 1 is the default. 1.2.1 and 1.4.3. Changes in
