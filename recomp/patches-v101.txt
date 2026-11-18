@@ -113,3 +113,15 @@ site nogauge main 21f4c68 37002140 52800020 37002140   # after_just_combo
 # The chain counter ("<N> Chain") is shown by Battle.BattleAnimExcel.update_hit itself, past those checks: its
 # ComboCount.SetCount(count + 1) call (main+0x1b6e230) is skipped, where the code tests that the counter exists.
 site nogauge main 1b6e210 36000120 14000009   # tbz w0, skip -> b past SetCount
+# The pause menu's Party page (UI_Component.BattleMembers) shows the party's buffs ("Ally Buffs", the object
+# Chara_BuffList, the page root's child 6) and the gauge move ("Gauge Move", ExplainMessage, kept in the page's field
+# +0x40). Its SetVisible (main+0x1fc8bb0) turns the page root (+0x18) on and, when showing it, goes on at main+0x1fc8c0c
+# with five instructions that touch neither x0 nor the flags before main+0x1fc8c20 loads x0 again. Each site keeps its
+# instruction and adds one call, the result passing on in x0: GameObject.get_transform (main+0x179b4c0) of the root,
+# Transform.GetChild(6) (main+0x17aac50), Component.get_gameObject (main+0x1799d90), GameObject.SetActive(false)
+# (main+0x179b650), then SetActive(false) of ExplainMessage. x19 is the page, x21 / x22 / w20 survive the calls.
+site nogauge main 1fc8c0c 9000d496 9000d496 f9400e60 aa1f03e1 97df4a2d          # adrp x22; x0 = root; get_transform
+site nogauge main 1fc8c10 f000d475 f000d475 528000c1 aa1f03e2 97df8810          # adrp x21; GetChild(6)
+site nogauge main 1fc8c14 f94026d6 f94026d6 aa1f03e1 97df445f                   # ldr x22; get_gameObject
+site nogauge main 1fc8c18 f9473eb5 f9473eb5 2a1f03e1 aa1f03e2 97df4a8e          # ldr x21; SetActive(false)
+site nogauge main 1fc8c1c 2a1f03f4 2a1f03f4 f9402260 2a1f03e1 aa1f03e2 97df4a8d # mov w20, wzr; ExplainMessage off
