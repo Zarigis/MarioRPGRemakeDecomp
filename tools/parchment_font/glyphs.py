@@ -438,7 +438,7 @@ GLYPHS.update({
                  "C 4.7 2.4 5.3 2.7 5.6 3.3"]),
 })
 
-# Edge-texture re-rolls from the batch review (src/reroll.py): seeds that
+# Edge-texture re-rolls from a batch review of the glyphs: seeds that
 # avoid obvious lumps, bleeds and pinched stems while keeping the texture.
 # Applied on top of any rough=dict(...) given with the glyph above.
 RESEED = {

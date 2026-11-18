@@ -46,7 +46,13 @@ AMP_LOG = None      # debug: a list to collect per-point outward displacement of
 EMBOLDEN = 0        # >0: grow every outline outward by this much (font units) - the Bold style
 STYLE = "Regular"   # style name written into the font ("Regular" or "Bold")
 # Settings applied on top of the defaults when building the Bold.
-BOLD = dict(EMBOLDEN=20, STYLE="Bold", EDGE_ROUGH=6, EDGE_BLEED=1.0)
+# Fixed-width digits: the game's Regular font has tabular 0-9 (HP counters, coin
+# count, play time), so these get one shared advance, are centred in it, and skip
+# the edge-noise pass so counters read cleanly. "" turns it off (the Bold's
+# original digits are proportional). Advance ~0.8 of the 700-unit cap height.
+TABULAR_DIGITS = "0123456789"
+TABULAR_ADV = 560
+BOLD = dict(EMBOLDEN=20, STYLE="Bold", EDGE_ROUGH=6, EDGE_BLEED=1.0, TABULAR_DIGITS="")
 # Per-glyph overrides: G(..., rough=dict(EDGE_ROUGH=5)) in glyphs.py changes
 # any of the EDGE_* settings for that glyph only.
 
@@ -366,6 +372,17 @@ def notdef():
 
 
 
+def tabular_outline(name, g):
+    """A digit without edge noise, centred on its ink in a TABULAR_ADV cell."""
+    path = build_outline(name, dict(g, rough={"EDGE_ROUGH": 0}))
+    adv = max(TABULAR_ADV, g["adv"] + 2 * round(EMBOLDEN))
+    x0, _, x1, _ = path.bounds
+    dx = round((adv - (x1 - x0)) / 2 - x0)
+    out = pathops.Path()
+    path.draw(TransformPen(out.getPen(), Transform().translate(dx, 0)))
+    return out, adv
+
+
 def main(out_path=None, do_specimen=True):
     OUT.mkdir(parents=True, exist_ok=True)
     order, cmap, glyf, hmtx = [".notdef", "space"], {32: "space", 0xA0: "space"}, {}, {}
@@ -376,8 +393,12 @@ def main(out_path=None, do_specimen=True):
 
     for ch, g in GLYPHS.items():
         name = glyph_name(ch)
-        glyph = make_glyph(build_outline(name, g))
-        adv, l = g["adv"] + TRACKING + 2 * round(EMBOLDEN), 0
+        if ch in TABULAR_DIGITS:
+            path, adv = tabular_outline(name, g)
+            glyph, l = make_glyph(path), 0
+        else:
+            glyph = make_glyph(build_outline(name, g))
+            adv, l = g["adv"] + TRACKING + 2 * round(EMBOLDEN), 0
         order.append(name)
         cmap[ord(ch)] = name
         glyf[name] = glyph
