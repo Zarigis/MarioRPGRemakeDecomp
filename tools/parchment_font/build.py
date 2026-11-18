@@ -42,6 +42,7 @@ EDGE_WAVE = 45      # typical wavelength of that edge noise (font units)
 EDGE_STYLE = "noise"  # "sine": even scallops; "noise": irregular bumps, patchy, with outward bleeds
 EDGE_BLEED = 1.4    # strength of the occasional outward ink bleeds ("noise" style)
 EDGE_SEED = ""      # extra seed text; override per glyph to re-roll an unlucky texture
+AMP_LOG = None      # debug: a list to collect per-point outward displacement of the edge texture
 EMBOLDEN = 0        # >0: grow every outline outward by this much (font units) - the Bold style
 STYLE = "Regular"   # style name written into the font ("Regular" or "Bold")
 # Settings applied on top of the defaults when building the Bold.
@@ -223,6 +224,8 @@ def roughen(path, seed):
                 amp = EDGE_ROUGH * (math.sin(t / EDGE_WAVE * 2 * math.pi + ph[0]) * 0.55
                                     + math.sin(t / (EDGE_WAVE * 0.53) * 2 * math.pi + ph[1]) * 0.3
                                     + math.sin(t / (EDGE_WAVE * 0.29) * 2 * math.pi + ph[2]) * 0.15)
+            if AMP_LOG is not None:
+                AMP_LOG.append(amp * (sign if EDGE_STYLE == "noise" else 1))
             moved.append((x + nx * amp, y + ny * amp))
         pen.moveTo(moved[0])
         for q in moved[1:]:

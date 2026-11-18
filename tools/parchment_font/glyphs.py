@@ -438,6 +438,32 @@ GLYPHS.update({
                  "C 4.7 2.4 5.3 2.7 5.6 3.3"]),
 })
 
+# Edge-texture re-rolls from the batch review (src/reroll.py): seeds that
+# avoid obvious lumps, bleeds and pinched stems while keeping the texture.
+# Applied on top of any rough=dict(...) given with the glyph above.
+RESEED = {
+    "A": "19", "B": "7", "D": "10", "E": "9", "F": "6", "G": "10", "H": "1", "I": "3",
+    "L": "13", "M": "8", "P": "6", "Q": "10", "R": "11", "S": "9", "T": "13", "V": "10",
+    "Y": "4", "Z": "9",
+    "b": "11", "e": "15", "f": "14", "m": "7", "p": "11", "q": "3", "r": "13", "x": "6", "y": "1",
+    "3": "1", "6": "8",
+    ",": "4", "!": "9", "?": "10", '"': "6", "\u2018": "6", "\u201c": "3", "\u2013": "5",
+    "/": "1", "\\": "7", "]": "3", "{": "6", "}": "9", "%": "8", "&": "6", ">": "5",
+    "^": "3", "`": "11", "@": "14", "\u00d7": "4", "\u2192": "10", "\u2191": "4",
+    "\u300c": "5", "\u266a": "11", "\u2606": "2", "\u00a9": "3",
+}
+RESEED_BOLD = {  # Bold-only seeds, where the shared seed is lumpy once emboldened
+    "A": "11", "B": "6", "R": "8", "U": "9", "Z": "5",
+    "e": "9", "g": "10", "h": "12", "p": "9", "s": "11", "5": "8",
+    ":": "8", "\\": "1", "[": "14", "=": "12", ">": "7",
+    "\u300c": "11", "\u2665": "6", "\u266a": "12",
+}
+for _ch, _sd in RESEED.items():
+    GLYPHS[_ch]["rough"] = {**(GLYPHS[_ch]["rough"] or {}), "EDGE_SEED": _sd}
+for _ch, _sd in RESEED_BOLD.items():
+    _r = GLYPHS[_ch]["rough"] or {}
+    GLYPHS[_ch]["rough"] = {**_r, "bold": {**(_r.get("bold") or {}), "EDGE_SEED": _sd}}
+
 SPACE = 5 * PX
 
 # Extra code points that reuse another glyph's outline (the game's font table
