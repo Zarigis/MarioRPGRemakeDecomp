@@ -3,8 +3,9 @@
 // Super Mario RPG builds it (FNV 0x913112079c440ca2, decompiled from its translated SPIR-V), with one change: when the
 // material's outline colour is magenta (1, 0, 1), the marker tools/font_mod.py --outline-color auto writes, the outline
 // takes a colour chosen from the text's own colour (the vertex colour times the face colour): LIGHT around dark text,
-// DARK around light text, blended over a short range of luminance; and white text takes the colour WHITE (the Super
-// Nintendo's menus drew their text light blue), near-white text in proportion. Any other outline colour, the game's own
+// DARK around light text, blended over a short range of luminance; white text takes the colour WHITE (the Super
+// Nintendo's menus drew their text light blue), near-white text in proportion; and dark text (the dialogue's brown,
+// #562A16, luminance about 0.04 linear) takes the colour INK, text up to twice as light in proportion. Any other outline colour, the game's own
 // materials among them, draws as before. LIGHT, DARK and WHITE are placeholders that text_outline.c replaces with the
 // settings' colours (linear).
 //
@@ -50,6 +51,7 @@ layout(location = 0) out vec4 _42;
 const vec3 LIGHT = vec3(0.123456789, 0.234567891, 0.345678912);
 const vec3 DARK = vec3(0.456789123, 0.567891234, 0.678912345);
 const vec3 WHITE = vec3(0.789123456, 0.891234567, 0.912345678);
+const vec3 INK = vec3(0.135792468, 0.246813579, 0.357924681);
 
 void main()
 {
@@ -71,7 +73,9 @@ void main()
     if (oc == vec3(1.0, 0.0, 1.0))
     {
         float white = smoothstep(0.75, 0.95, min(face.r, min(face.g, face.b)));   // 1 for white text, 0 for coloured
+        float ink = 1.0 - smoothstep(0.05, 0.09, dot(face, vec3(0.2126, 0.7152, 0.0722)));   // 1 for the dialogue's brown
         vc = mix(vc, WHITE / max(fp_c3_1._m0[2].xyz, vec3(1e-4)), white);
+        vc = mix(vc, INK / max(fp_c3_1._m0[2].xyz, vec3(1e-4)), ink);
         float lum = dot(face, vec3(0.2126, 0.7152, 0.0722));   // linear: dark brown text is near 0.03, white 1
         oc = mix(LIGHT, DARK, smoothstep(0.12, 0.3, lum));
     }

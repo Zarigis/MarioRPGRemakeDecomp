@@ -200,11 +200,13 @@
 # sky_ground = 1839e0
 # Text outlines that follow the text's colour, for a font mod made with tools/font_mod.py --outline-color auto: the
 # outline is text_outline_light around dark text and text_outline_dark around light text, and white text in those
-# fonts is drawn in text_white (RRGGBB hex; ffffff keeps it white). The defaults are the Super Nintendo's: the
-# dialogue's cream, and the menus' light blue text with its dark blue outline. Read at start.
-# text_outline_light = e9d1a8
+# fonts is drawn in text_white and the dialogue's dark text in text_dark (RRGGBB hex; ffffff and 562a16 keep the
+# game's). The defaults: a cream a little lighter than the Super Nintendo dialogue's, its menus' light blue text with
+# their dark blue outline, and a darker brown than the game's for the dialogue. Read at start.
+# text_outline_light = f2e0c0
 # text_outline_dark = 22327a
 # text_white = d2d2fa
+# text_dark = 361a0c
 # Dynamic resolution: 1 lets the game lower the scene to 90 or 80 % of that size, 0 keeps it at 100 %. The game decides
 # by a cost estimate made for the Switch, which grows with the scene's width and ignores how fast your GPU is: a
 # scene wider than about 3000 pixels can drop to 80 % on any GPU. 1 is the default. 1.2.1 and 1.4.3. Changes in
