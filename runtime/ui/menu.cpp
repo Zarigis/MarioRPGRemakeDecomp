@@ -386,9 +386,9 @@ extern "C" void menu_vk_release(void) {
 // MRPG_MENU_TEST_SET=<frame>:<key>=<value>[,<key>=<value>...][;<frame>:...]: cfg_set of each key (MRPG_ prefix
 // optional) at that presented frame; changes live settings with no input, menu open or not. mrpg.ini is written only by
 // the pseudo-key SAVE=1 (cfg_save, as a row change does; a failed write shows the menu's save note).
-// The Amiibo, Mods and Cheats tabs of the TotK code base (amiibo_page.cpp, cheats_tab.cpp, mods.c) are not shown: this
-// game reads no amiibo, and its mod and cheat loading has not been tried.
-enum { TAB_SCREEN, TAB_GAME, TAB_SOUND, TAB_CONTROLS, TAB_MENU, TAB_ADVANCED, TAB_COUNT };
+// The Amiibo and Cheats tabs of the TotK code base (amiibo_page.cpp, cheats_tab.cpp) are not shown: this game reads no
+// amiibo, and its cheat loading has not been tried.
+enum { TAB_SCREEN, TAB_GAME, TAB_MODS, TAB_SOUND, TAB_CONTROLS, TAB_MENU, TAB_ADVANCED, TAB_COUNT };
 enum { TEST_PAGE_FRAMES = 30, TEST_SETS = 16 };
 struct TestSet { uint64_t frame; char key[64], value[64]; };
 static struct {
@@ -677,7 +677,6 @@ static void tab_game(float scale) {
     static const UiTextId mode[] = {UI_MENU_MODE_DOCKED, UI_MENU_MODE_HANDHELD};
     opt_choice("MRPG_OPERATION_MODE", UI_MENU_OPERATION_MODE, mode, 2, UI_MENU_OPERATION_MODE_DESC);
     opt_toggle("MRPG_ASSUME_FOCUS", UI_MENU_ASSUME_FOCUS, UI_MENU_ASSUME_FOCUS_DESC);
-    opt_toggle("MRPG_HIDE_GAUGE", UI_MENU_HIDE_GAUGE, UI_MENU_HIDE_GAUGE_DESC);   // recomp/patches-v101.txt, set nogauge
     row_play_time();
     opt_end();
 }
@@ -954,11 +953,92 @@ static void tab_advanced(float scale) {
     }
 }
 
-static const UiTextId kTabNames[TAB_COUNT] = {UI_MENU_TAB_SCREEN, UI_MENU_TAB_GAME, UI_MENU_TAB_SOUND,
+static const UiTextId kTabNames[TAB_COUNT] = {UI_MENU_TAB_SCREEN,   UI_MENU_TAB_GAME, UI_MENU_TAB_MODS, UI_MENU_TAB_SOUND,
                                               UI_MENU_TAB_CONTROLS, UI_MENU_TAB_MENU, UI_MENU_TAB_ADVANCED};
 static int g_tab;               // the tab shown
 static int g_tab_request = -1;  // select this tab at the next layout; -1 none
 static int g_focus_page = -1;   // this tab's first row takes the cursor once it is shown; -1 none
+
+// ---- Mods: the mods folder (mods.c) with switches and the load order, then the port's own changes to the game. The
+// folder was read at start; the rows change the order and switches for the next start.
+
+// A colour setting as a choice of two: the Super Nintendo look first, then the game's own (or another look); a value
+// set by hand in mrpg.ini shows as it is.
+static void row_colour(const char *key, UiTextId label, UiTextId desc, const char *v0, UiTextId n0, const char *v1,
+                       UiTextId n1) {
+    const char *vals[] = {v0, v1};
+    const char *names[] = {menu_text(n0), menu_text(n1)};
+    opt_choice_list(key, label, vals, names, 2, desc);
+}
+
+static void mods_builtin_rows(void) {
+    opt_group(UI_MENU_MODS_BUILTIN);
+    opt_toggle("MRPG_HIDE_GAUGE", UI_MENU_HIDE_GAUGE, UI_MENU_HIDE_GAUGE_DESC);   // recomp/patches-v101.txt, set nogauge
+    opt_toggle("MRPG_CAMERA_STICK", UI_MENU_CAMERA_STICK, UI_MENU_CAMERA_STICK_DESC);   // input.c camera_stick
+    row_colour("MRPG_SKY_GROUND", UI_MENU_SKY_GROUND, UI_MENU_SKY_GROUND_DESC, "1839e0", UI_MENU_SKY_SNES, "game",
+               UI_MENU_SKY_GAME);   // sky_ground.c
+    // text_outline.c: the four colours of a font mod with auto outlines
+    opt_text(UI_MENU_TEXT_COLORS_NOTE);
+    row_colour("MRPG_TEXT_DARK", UI_MENU_TEXT_DARK, UI_MENU_TEXT_DARK_DESC, "361a0c", UI_MENU_COLOR_DARK_BROWN, "562a16",
+               UI_MENU_COLOR_GAME_BROWN);
+    row_colour("MRPG_TEXT_OUTLINE_LIGHT", UI_MENU_TEXT_OUTLINE_LIGHT, UI_MENU_TEXT_OUTLINE_LIGHT_DESC, "f2e0c0",
+               UI_MENU_COLOR_CREAM, "e9d1a8", UI_MENU_COLOR_SNES_CREAM);
+    row_colour("MRPG_TEXT_WHITE", UI_MENU_TEXT_WHITE, UI_MENU_TEXT_WHITE_DESC, "d2d2fa", UI_MENU_COLOR_LIGHT_BLUE, "ffffff",
+               UI_MENU_COLOR_WHITE);
+    row_colour("MRPG_TEXT_OUTLINE_DARK", UI_MENU_TEXT_OUTLINE_DARK, UI_MENU_TEXT_OUTLINE_DARK_DESC, "22327a",
+               UI_MENU_COLOR_DARK_BLUE, "2a1d10", UI_MENU_COLOR_BROWN);
+}
+
+static void tab_mods(float scale) {
+    opt_begin("##mods", scale);
+    opt_group(UI_MENU_MODS_INSTALLED);
+    int n = mods_count();
+    if (!n) opt_text(UI_MENU_MODS_NONE);
+    const char *after = mods_changed() ? menu_text(UI_MENU_AFTER_RESTART) : nullptr;
+    for (int i = 0; i < n; i++) {
+        const ModInfo *m = mods_at(i);
+        char id[32], desc[1536], over[512] = "", other[512] = "", problem[512] = "";
+        snprintf(id, sizeof id, "##mod%d", i);
+        if (m->overridden) snprintf(over, sizeof over, menu_text(UI_MENU_MODS_OVERRIDDEN), m->overridden, m->overridden_by);
+        if (m->other_version) snprintf(other, sizeof other, menu_text(UI_MENU_MODS_OTHER_VERSION), m->other_version);
+        switch (m->problem) {
+        case MOD_EMPTY: snprintf(problem, sizeof problem, "%s", menu_text(UI_MENU_MODS_EMPTY)); break;
+        case MOD_PLUGIN: snprintf(problem, sizeof problem, "%s", menu_text(UI_MENU_MODS_SUBSDK)); break;
+        case MOD_EXEFS_LATER: snprintf(problem, sizeof problem, "%s", menu_text(UI_MENU_MODS_EXEFS_LATER)); break;
+        case MOD_EXEFS_UNSUPPORTED:
+            snprintf(problem, sizeof problem, menu_text(UI_MENU_MODS_EXEFS_UNSUPPORTED), m->note);
+            break;
+        case MOD_EXEFS_OTHER: snprintf(problem, sizeof problem, "%s", menu_text(UI_MENU_MODS_EXEFS_OTHER)); break;
+        case MOD_BAD_NAME: snprintf(problem, sizeof problem, "%s", menu_text(UI_MENU_MODS_BAD_NAME)); break;
+        default: break;
+        }
+        int k = snprintf(desc, sizeof desc, menu_text(UI_MENU_MODS_ROW_DESC), m->replaced, m->added);
+        const char *parts[] = {over, other, problem, menu_text(UI_MENU_MODS_MOVE_HINT)};
+        for (const char *part : parts)
+            if (*part && k >= 0 && k < (int)sizeof desc) k += snprintf(desc + k, sizeof desc - k, "\n\n%s", part);
+        const char *note = m->enabled && m->problem != MOD_OK ? menu_text(UI_MENU_MODS_UNUSED) : after;
+        int s = opt_text_row(id, m->name, menu_text(m->enabled ? UI_MENU_ON : UI_MENU_OFF), note, desc, true);
+        if (s == 2 || s == -1 || s == 1) {
+            mods_set_enabled(i, !m->enabled);
+            opt_save_soon();
+        } else if ((s == 3 && i > 0) || (s == 4 && i + 1 < n)) {
+            int to = s == 3 ? i - 1 : i + 1;
+            mods_move(i, to - i);
+            snprintf(id, sizeof id, "##mod%d", to);
+            opt_focus_key(id);   // the cursor follows the mod
+            opt_save_soon();
+        }
+    }
+    static uint64_t open_failed;   // plat_now_ns until which the button says it failed
+    if (opt_button("##mods_open", UI_MENU_MODS_OPEN, UI_MENU_MODS_OPEN_DESC,
+                   plat_now_ns() < open_failed ? menu_text(UI_MENU_ACTION_FAILED) : "")) {
+        bool ok = mods_dir()[0] != 0;
+        if (ok) plat_file_mkdir_p(mods_dir());
+        if (!ok || !plat_open_folder(mods_dir())) open_failed = plat_now_ns() + 3000000000ull;
+    }
+    mods_builtin_rows();
+    opt_end();
+}
 
 // ---- the window: title, tabs (L / R or Q / E switch), the page, and the bottom row with "Continue" and "Quit game".
 // B on the gamepad and Esc close it.
@@ -1004,6 +1084,7 @@ static void layout_menu(uint32_t w, uint32_t h, float scale) {
             switch (k) {
             case TAB_SCREEN: tab_screen(scale); break;
             case TAB_GAME: tab_game(scale); break;
+            case TAB_MODS: tab_mods(scale); break;
             case TAB_SOUND: tab_sound(scale); break;
             case TAB_CONTROLS: tab_controls(scale); break;
             case TAB_MENU: tab_menu(scale); break;
