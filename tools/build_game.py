@@ -269,6 +269,35 @@ def write_if_changed(path, text):
     path.write_text(text, encoding='utf-8', newline='\n')   # Ninja and clang read UTF-8; paths may be non-ASCII
 
 
+GAME_RC = None   # out/mrpg.rc: runtime/mrpg.rc with the game's own icon (game_rc), compiled in its place when set
+
+
+def game_rc(control, out):
+    """When the extraction has the title icon (control/icon_AmericanEnglish.dat, tools/extract.py), writes out/mrpg.ico
+    from it (tools/game_icon.py) and out/mrpg.rc, runtime/mrpg.rc with that icon, and returns the .rc; else None, and
+    mrpg.exe keeps runtime/mrpg.ico. Both outputs are derived from the game's files, so they stay in the build folder.
+    The icon is made again when the title icon or game_icon.py is newer."""
+    try:
+        import game_icon
+    except ImportError:   # a folder without tools/game_icon.py
+        return None
+    src = control / game_icon.ICON
+    if not src.is_file():
+        return None
+    ico = out / 'mrpg.ico'
+    maker = Path(game_icon.__file__)
+    if not ico.is_file() or ico.stat().st_mtime < max(src.stat().st_mtime, maker.stat().st_mtime):
+        try:
+            game_icon.make_ico(src, ico)
+        except ImportError:   # no Pillow
+            print('mrpg.exe keeps runtime/mrpg.ico: making the game icon needs Pillow (tools/requirements.txt)')
+            return None
+    rc = out / 'mrpg.rc'
+    write_if_changed(rc, '/* Written by tools/build_game.py (game_rc): runtime/mrpg.rc with the game\'s title icon. */\n'
+                         f'1 24 "{(RUNTIME / "mrpg.manifest").as_posix()}"\n1 ICON "{ico.as_posix()}"\n')
+    return rc
+
+
 def copy_romfs_patches(version, out):
     """mrpg.exe loads romfs-patches beside romfs-index.bin (runtime/romfs.c overlay_init). tools/make_romfs_patches.py
     writes them into build/<version> only, so a build in another directory ran without the 60 fps overlay (the quick
@@ -459,8 +488,9 @@ def ninja_file(gen, out, mods, pool_depth, skip=(), prebuilt=False, runtime_lib=
     for src in sources:
         o = runtime_object(out, src)
         if src.suffix == '.rc':   # windres writes no depfile: the files mrpg.rc embeds are listed by hand
-            lines.append(f'build {ninja_path(o)}: rc {ninja_path(src)} | {ninja_path(RUNTIME / "mrpg.manifest")} '
-                         f'{ninja_path(RUNTIME / "mrpg.ico")}')
+            rc, ico = (GAME_RC, GAME_RC.with_suffix('.ico')) if GAME_RC and not make_lib else (src, RUNTIME / 'mrpg.ico')
+            lines.append(f'build {ninja_path(o)}: rc {ninja_path(rc)} | {ninja_path(RUNTIME / "mrpg.manifest")} '
+                         f'{ninja_path(ico)}')
         else:
             stamp_dep = (' | ' if not pgo_dep else ' ') + ninja_path(stamp) if stamp else ''
             lines.append(f'build {ninja_path(o)}: cc_rt {ninja_path(src)}{pgo_dep}{stamp_dep}')
@@ -858,7 +888,9 @@ def main():
             sys.exit(f'no expected hashes known for {args.version}; pass --expected')
         expected = ROOT / 'tools' / 'data' / f'expected-v{DISPLAY_VERSIONS[args.version]}.json'
     hashes = json.loads(Path(expected).read_text())['exefs_sha256']
-    global CLANG, AR, WINDRES, NINJA, TOOLCHAIN_BIN, DEPS
+    global CLANG, AR, WINDRES, NINJA, TOOLCHAIN_BIN, DEPS, GAME_RC
+    if WIN and not args.make_runtime_lib:   # the library goes into releases: it keeps runtime/mrpg.ico
+        GAME_RC = game_rc(paths['romfs'].parent / 'control', out)
     if args.ninja:
         NINJA = args.ninja.resolve()
     elif not NINJA.is_file() and (ROOT / 'bin' / ('ninja' + ('.exe' if WIN else ''))).is_file():

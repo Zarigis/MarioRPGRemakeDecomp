@@ -5,9 +5,11 @@ Steps, each skipped when its verified output already exists:
 1. ExeFS (code modules) of the base game and of the update.
 2. Base RomFS, verified through all six IVFC levels.
 3. Update RomFS: hactool merges the base Program NCA with the update's BKTR section.
+4. The update's title data (the Control NCA's RomFS: control.nacp and the title icons, for mrpg.exe's icon).
 
-Steps 1 and 3 run for every file in `input.updates`. Each update's version is identified by the SHA-256 of its `main`,
-not by its file name. Output: build/extracted/v0/{exefs,romfs} and build/extracted/v<version>/{exefs,romfs}.
+Steps 1, 3 and 4 run for every file in `input.updates`. Each update's version is identified by the SHA-256 of its
+`main`, not by its file name. Output: build/extracted/v0/{exefs,romfs} and build/extracted/v<version>/{exefs,romfs,
+control}.
 
 --base, --update, --keys and --work name the files and the output directory instead of the config (the installer
 imports the functions instead). Runs under .venv-py314. Key values are read by the tools from the keys file and never
@@ -274,6 +276,43 @@ def merge_update_romfs(base, update, keys_path, hactool, output, logs, phase=lam
         result.rename(output)
 
 
+def extract_control(source, keys_path, hactool, output, logs):
+    """The RomFS of source's Control NCA into output: control.nacp (the title's names and settings) and
+    icon_<language>.dat, the title's icon as a 256x256 JPEG per language (tools/game_icon.py makes mrpg.exe's icon from
+    it). The NCA is a megabyte; hactool decrypts it with the file's common ticket, as for the Program NCA."""
+    keys = load_keys(keys_path)
+    with source.open('rb') as f:
+        _, entries = container_entries(f, source.stat().st_size)
+        tickets = common_tickets(f, entries)
+        controls = [r for r, _ in nca_inventory(f, entries, keys) if r['content_type'] == 2]
+    require(len(controls) == 1, f'{source.name}: expected one Control NCA, found {len(controls)}')
+    if output.exists():
+        shutil.rmtree(output)
+    log_path = logs / f'control-{output.parent.name}.log'
+    with tempfile.TemporaryDirectory(prefix='control-', dir=output.parent) as tmp:
+        tmp = Path(tmp)
+        title_keys = tmp / 'title.keys'
+        fd = os.open(title_keys, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, 'w') as f:
+            for rights, key in tickets.items():
+                f.write(f'{rights.hex()} = {key.hex()}\n')
+        hactool_keys = tmp / 'hactool.keys'
+        hactool_prod_keys(keys_path, hactool_keys)
+        nca = tmp / 'control.nca'
+        try:
+            copy_range(source, record_offset(controls[0]), controls[0]['size'], nca)
+        except ValueError as e:   # the file ends inside the NCA
+            raise DamagedFile(source, str(e)) from None
+        result = tmp / 'control'
+        code, log = run_hactool([str(hactool), '-x', '-y', '--disablekeywarns', '--suppresskeys', '-k', str(hactool_keys),
+                                 f'--romfsdir={result}', str(nca)], dict(os.environ, MNG_TITLE_KEYS=str(title_keys)))
+        log_path.write_text(log, encoding='utf-8')
+        checked = '\n'.join(line for line in log.splitlines() if not UNSIGNED.match(line))
+        require(code == 0 and not HACTOOL_ERROR.search(checked) and (result / 'control.nacp').is_file(),
+                f'hactool could not unpack the Control NCA; see {shown(log_path)}')
+        result.rename(output)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--config', type=Path, default=ROOT / 'config.local.toml')
@@ -340,6 +379,9 @@ def extract_update(base, update, keys, hactool, extracted, logs, versions):
         say('  merging RomFS with the update')
         merge_update_romfs(base, update, keys, hactool, current / 'romfs', logs)
     check_romfs(current / 'romfs', expected)
+    if not (current / 'control' / 'control.nacp').is_file():
+        say('  unpacking the title data (icon)')
+        extract_control(update, keys, hactool, current / 'control', logs)
 
 
 if __name__ == '__main__':
