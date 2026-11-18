@@ -133,3 +133,12 @@ site nogauge main 1fc8c1c 2a1f03f4 2a1f03f4 f9402260 2a1f03e1 aa1f03e2 97df4a8d 
 # hits and the like) do not go through it. With the setting off the call is skipped.
 set menurumble MRPG_SOUND_RUMBLE_OFF 0
 site menurumble main 1c23c64 97ffc937 d503201f   # bl PadVibration.Play -> nop
+
+# Signal Ring always on (MRPG_SIGNAL_RING, menu "Signal Ring always on"). FieldSystem.SetRingAccessoryType (main+0x1b391a0)
+# takes the best ring among the party's accessories (+0x60 of each member's equipment): item 0x4b gives type 1, item 0xa7
+# type 2, none 0; then stores the type at +0x19c of FieldSystem's statics, which UpdateRingAccessory reads to sound the
+# ring. The room conditions it tests first stay as they are. At main+0x1b39300, w8 holds the type and a zero branches to
+# the code that stores 0; the site makes the type at least 1 instead (w20 = w8 | (w8 == 0), with clz and a shift, so no
+# flags change), and the store that follows stores it. x9 is not read again before it is written.
+set signalring MRPG_SIGNAL_RING 0
+site signalring main 1b39300 340006a8 5ac01109 53057d29 2a090114   # cbz w8, none -> w20 = max(w8, 1)
