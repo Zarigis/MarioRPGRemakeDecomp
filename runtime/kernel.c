@@ -2477,8 +2477,16 @@ HOST_OVERRIDE(KERN_SYM_GET_CURRENT_FIBER, kern_fiber_current);
 // MRPG_HANG_SECONDS while the guest is not frozen (the control port's pause) and the window is not minimised, it writes
 // one report to the log: every guest thread, what it waits on and since when, its latest SVC, the host code it runs
 // (a thread holding a core: sampled, and named as the lifted function it is in) and its guest call chain from the frame
-// pointers. Another report follows only after presents resume. The list is copied holding G and written after it is
-// released, so the report cannot wait on a lock a stuck thread holds while it holds G itself.
+// pointers. For a thread waiting on a lock or a condition variable it also prints the words around the lock: in an
+// nn::os semaphore (SemaphoreType: _count at +0x14, _maxCount +0x18, the lock +0x1c, the key +0x20) the count is the
+// word 8 bytes before the lock, so a count above 0 under sleeping waiters shows a wake-up the kernel lost. Another
+// report follows only after presents resume. The list is copied holding G and written after it is released, so the
+// report cannot wait on a lock a stuck thread holds while it holds G itself.
+//
+// After the report the watchdog nudges once (kern_hang_nudge): every thread waiting on a condition variable is woken
+// as SignalProcessWideKey would wake it. A spurious wake is allowed (the SDK's waits recheck their condition in a
+// loop), so a game that was waiting on purpose waits again; if presents resume afterwards, the log says so, and the
+// hang was a lost wake-up.
 #include "gfx_wsys.h"
 #include "nvn_api.h"
 
@@ -2529,27 +2537,61 @@ void kern_hang_report(uint64_t stalled_ns) {
                h->cur_core >= 0 ? "holds a core" : "blocked", wkind_name(h->wkind), (unsigned long long)h->waddr,
                (unsigned long long)h->wkey, (unsigned long long)h->wobj, h->waker, h->svc,
                h->svc_at ? (now - h->svc_at) / 1e9 : -1.0, h->depth, host);
+        if ((h->wkind == W_CONDVAR || h->wkind == W_LOCK) && h->waddr >= 16) {
+            uint32_t w[6] = {0}, k = 0;
+            if (plat_mem_read(h->waddr - 16, w, sizeof w)) {
+                if (h->wkind == W_CONDVAR) plat_mem_read(h->wkey, &k, 4);
+                rt_log("  words at lock-16: %08x %08x %08x(count if a semaphore) %08x(max) | lock %08x | %08x; key %08x",
+                       w[0], w[1], w[2], w[3], w[4], w[5], k);
+            }
+        }
         if (h->cpu) kern_backtrace(h->cpu);
     }
     rt_log("hang: end of report");
 }
 
+// Wake every condition variable waiter once, as SignalProcessWideKey does (the comment above kern_hang_report).
+// Returns how many it woke.
+int kern_hang_nudge(void) {
+    int n = 0;
+    lock();
+    for (int again = 1; again;) {
+        again = 0;
+        for (RtThread *w = g_wait; w; w = w->next)
+            if (w->wkind == W_CONDVAR) {
+                lock_acquire_for(w, w->waddr, w->wtag);
+                n++;
+                again = 1;   // the wait list changed under the walk: start over
+                break;
+            }
+    }
+    unlock();
+    return n;
+}
+
 static void hang_watch(void *arg) {
     uint64_t limit = (uint64_t)(uintptr_t)arg * 1000000000ull;
-    uint64_t last = 0, since = kern_now_ns();
+    uint64_t last = 0, since = kern_now_ns(), nudged_at = 0;
     int reported = 0;
     for (;;) {
         plat_sleep_ms(1000);
         uint64_t f = __atomic_load_n(&gfx_counters.frames, __ATOMIC_RELAXED), now = kern_now_ns();
         int quiet = __atomic_load_n(&g_frozen_at, __ATOMIC_ACQUIRE) || wsys_minimized();
         if (f != last || quiet) {   // presenting, or paused or minimised on purpose: the clock starts again
-            if (f != last) reported = 0;   // a report again only after presents resumed
+            if (f != last) {
+                if (nudged_at)
+                    rt_log("hang: presents resumed %.1f s after the nudge: the stall was a lost wake-up", (now - nudged_at) / 1e9);
+                reported = 0, nudged_at = 0;   // a report again only after presents resumed
+            }
             last = f, since = now;
             continue;
         }
         if (!reported && f && now - since >= limit) {
             reported = 1;
             kern_hang_report(now - since);
+            int n = kern_hang_nudge();
+            nudged_at = kern_now_ns();
+            rt_log("hang: nudged %d condition variable waiters (a spurious wake each)", n);
         }
     }
 }

@@ -346,6 +346,9 @@ static void command(char *line, char *out, size_t cap) {
     } else if (!strcmp(cmd, "hang")) {   // the hang report (kernel.c kern_hang_report) now, into the log
         kern_hang_report(0);
         status(out, cap, NULL);
+    } else if (!strcmp(cmd, "nudge")) {   // the hang watchdog's spurious wake of every condvar waiter (kern_hang_nudge)
+        rt_log("control: nudged %d condition variable waiters", kern_hang_nudge());
+        status(out, cap, NULL);
     } else if (!strcmp(cmd, "quit")) {
         rt_log("control: quit");
         fs_save_flush();
