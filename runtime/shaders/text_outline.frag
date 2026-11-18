@@ -5,7 +5,8 @@
 // takes a colour chosen from the text's own colour (the vertex colour times the face colour): LIGHT around dark text,
 // DARK around light text, blended over a short range of luminance; white text takes the colour WHITE (the Super
 // Nintendo's menus drew their text light blue), near-white text in proportion; and dark text (the dialogue's brown,
-// #562A16, luminance about 0.04 linear) takes the colour INK, text up to twice as light in proportion. Any other outline colour, the game's own
+// #562A16, luminance about 0.04 linear) takes the colour INK, text up to twice as light in proportion. Glyphs from the
+// atlas's bottom eighth, right half, keep their white: tools/font_mod.py puts the button letters there. Any other outline colour, the game's own
 // materials among them, draws as before. LIGHT, DARK and WHITE are placeholders that text_outline.c replaces with the
 // settings' colours (linear).
 //
@@ -73,6 +74,9 @@ void main()
     if (oc == vec3(1.0, 0.0, 1.0))
     {
         float white = smoothstep(0.75, 0.95, min(face.r, min(face.g, face.b)));   // 1 for white text, 0 for coloured
+        // the button letters (tools/font_mod.py --button-glyphs) sit in the atlas's bottom eighth, right half
+        // (BUTTON_CORNER): they stay white, as the game draws them on their coloured circles
+        if (_33.x > 0.5 && _33.y < 0.125) white = 0.0;
         float ink = 1.0 - smoothstep(0.05, 0.09, dot(face, vec3(0.2126, 0.7152, 0.0722)));   // 1 for the dialogue's brown
         vc = mix(vc, WHITE / max(fp_c3_1._m0[2].xyz, vec3(1e-4)), white);
         vc = mix(vc, INK / max(fp_c3_1._m0[2].xyz, vec3(1e-4)), ink);

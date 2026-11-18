@@ -23,6 +23,10 @@ draws it light around dark text and dark around light text (runtime/text_outline
 --button-glyphs keeps the game font's own A, B, X and Y as extra characters at U+E000..U+E003 (BUTTON_GLYPHS), which no
 text of the game uses: tools/button_letters_mod.py points the letters on the UI's button icons at them, so the buttons
 keep the game's lettering while every other text takes the new font. The game draws those letters in the bold font.
+--button-font draws those four from another font instead (the thin lettering of the console's own button glyphs, for
+one). Either way the four go into a corner of the atlas no other glyph uses (BUTTON_CORNER: the bottom eighth of the
+right half), and the port's text shader (runtime/shaders/text_outline.frag) keeps glyphs from there white instead of
+taking the light text colour.
 
   python tools/font_mod.py --font C:/Windows/Fonts/Gabriola.ttf [--bundle regular] [--name font-test] [--outline 0.07]
 """
@@ -39,6 +43,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BUNDLE_DIR = 'Data/StreamingAssets/aa/Switch/fonts_assets_'
 SUPER = 8   # glyphs are rendered this many times the atlas resolution, and the distances measured there
 BUTTON_GLYPHS = {'A': 0xE000, 'B': 0xE001, 'X': 0xE002, 'Y': 0xE003}   # the game's button letters, kept (--button-glyphs)
+BUTTON_CORNER = 8   # the button glyphs sit in the bottom 1/8 of the atlas's right half (text_outline.frag BUTTON_V)
 
 
 def romfs_file(version, path):
@@ -153,6 +158,7 @@ def main():
                          'drawn by the port (runtime/text_outline.c, settings text_outline_light and _dark)')
     ap.add_argument('--button-glyphs', action='store_true',
                     help="keep the game's A, B, X, Y at U+E000..U+E003 for the button icons (tools/button_letters_mod.py)")
+    ap.add_argument('--button-font', help='with --button-glyphs: draw those four from this font instead of the game\'s')
     a = ap.parse_args()
 
     rel = f'{BUNDLE_DIR}/font_tmpro_{a.bundle}.bundle'
@@ -190,6 +196,13 @@ def main():
             fa['m_GlyphTable'].append(g)
             fa['m_CharacterTable'].append(c)
             nxt += 1
+    bfont = None
+    if a.button_font:   # the button letters' font, scaled to the same capital height
+        bprobe = ImageFont.truetype(a.button_font, 1000)
+        bsize = face['m_CapLine'] / -bprobe.getbbox('H', anchor='ls')[1] * 1000 * a.scale
+        bfont = ImageFont.truetype(a.button_font, max(1, round(bsize * SUPER)))
+    button_of = {cp: ch for ch, cp in BUTTON_GLYPHS.items()} if a.button_glyphs else {}
+    corner_top, bx = H - H // BUTTON_CORNER, W // 2   # the button glyphs' corner (top-down rows) and its next column
     by_index = {g['m_Index']: g for g in fa['m_GlyphTable']}
     orig_atlas = np.asarray(tex.image.split()[-1])   # top-down, as PIL gives it
     nb = font.getbbox('\U0010fffd', anchor='ls')
@@ -205,7 +218,12 @@ def main():
         if not g:
             continue
         ch = chr(c['m_Unicode'])
-        if has_glyph(font, ch, notdef):
+        button = button_of.get(c['m_Unicode'])
+        if button and bfont:   # a button letter from the button font
+            img, met = sdf_glyph(bfont, button, pad, grad)
+            g['m_Metrics'] = {'m_Width': met['w'], 'm_Height': met['h'], 'm_HorizontalBearingX': met['bx'],
+                              'm_HorizontalBearingY': met['by'], 'm_HorizontalAdvance': met['adv']}
+        elif has_glyph(font, ch, notdef):
             img, met = sdf_glyph(font, ch, pad, grad)
             g['m_Metrics'] = {'m_Width': met['w'], 'm_Height': met['h'], 'm_HorizontalBearingX': met['bx'],
                               'm_HorizontalBearingY': met['by'], 'm_HorizontalAdvance': met['adv']}
@@ -221,17 +239,23 @@ def main():
             g['m_GlyphRect'] = {'m_X': 0, 'm_Y': 0, 'm_Width': 0, 'm_Height': 0}
             continue
         hh, ww = img.shape
-        if x + ww > W:
-            x, y, row = 0, y + row, 0
-        if y + hh > H:
-            raise SystemExit('the glyphs do not fit the atlas: try --scale below 1')
-        atlas[y:y + hh, x:x + ww] = img   # top-down here; flipped to Unity's bottom-up order when stored
+        if button:   # into the button corner, along its bottom row
+            if bx + ww > W or hh > H - corner_top:
+                raise SystemExit('the button glyphs do not fit their corner of the atlas')
+            gx, gy, bx = bx, H - hh, bx + ww
+        else:
+            if x + ww > W:
+                x, y, row = 0, y + row, 0
+            if y + hh > H or (y + hh > corner_top and x + ww > W // 2 and button_of):
+                raise SystemExit('the glyphs do not fit the atlas: try --scale below 1')
+            gx, gy = x, y
+            x += ww
+            row = max(row, hh)
+        atlas[gy:gy + hh, gx:gx + ww] = img   # top-down here; flipped to Unity's bottom-up order when stored
         # the rectangle without the padding, its y from the atlas's bottom
-        r = {'m_X': x + pad, 'm_Y': H - (y + hh) + pad, 'm_Width': met['cw'], 'm_Height': met['ch']}
+        r = {'m_X': gx + pad, 'm_Y': H - (gy + hh) + pad, 'm_Width': met['cw'], 'm_Height': met['ch']}
         g['m_GlyphRect'] = r
-        used.append({'m_X': x, 'm_Y': H - (y + hh), 'm_Width': ww, 'm_Height': hh})
-        x += ww
-        row = max(row, hh)
+        used.append({'m_X': gx, 'm_Y': H - (gy + hh), 'm_Width': ww, 'm_Height': hh})
     fa['m_UsedGlyphRects'] = used
     fa['m_FreeGlyphRects'] = []
     fa['m_FontFeatureTable']['m_GlyphPairAdjustmentRecords'] = []   # the game font's kerning pairs do not apply
