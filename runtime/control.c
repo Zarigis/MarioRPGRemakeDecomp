@@ -352,6 +352,7 @@ static void command(char *line, char *out, size_t cap) {
     } else if (!strcmp(cmd, "quit")) {
         rt_log("control: quit");
         fs_save_flush();
+        prof_write();   // plat_exit runs no atexit handlers: the MRPG_PROFILE file and the perf summary
         plat_exit(0);
     } else {
         fail(out, cap, "unknown command; see runtime/control.c");
