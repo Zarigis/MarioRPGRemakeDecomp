@@ -3,9 +3,10 @@
 // Super Mario RPG builds it (FNV 0x913112079c440ca2, decompiled from its translated SPIR-V), with one change: when the
 // material's outline colour is magenta (1, 0, 1), the marker tools/font_mod.py --outline-color auto writes, the outline
 // takes a colour chosen from the text's own colour (the vertex colour times the face colour): LIGHT around dark text,
-// DARK around light text, blended over a short range of luminance. Any other outline colour, the game's own materials
-// among them, draws as before. LIGHT and DARK are placeholders that text_outline.c replaces with the settings' colours
-// (linear).
+// DARK around light text, blended over a short range of luminance; and white text takes the colour WHITE (the Super
+// Nintendo's menus drew their text light blue), near-white text in proportion. Any other outline colour, the game's own
+// materials among them, draws as before. LIGHT, DARK and WHITE are placeholders that text_outline.c replaces with the
+// settings' colours (linear).
 //
 // The inputs, as the decompiled shader uses them: _33.xy the atlas coordinates; _35 x the alpha clip, y the distance
 // scale, z the bias; _37 the face (xy) and outline (zw) texture coordinates; _39 the vertex colour. fp_c3 is the
@@ -48,6 +49,7 @@ layout(location = 0) out vec4 _42;
 
 const vec3 LIGHT = vec3(0.123456789, 0.234567891, 0.345678912);
 const vec3 DARK = vec3(0.456789123, 0.567891234, 0.678912345);
+const vec3 WHITE = vec3(0.789123456, 0.891234567, 0.912345678);
 
 void main()
 {
@@ -63,22 +65,25 @@ void main()
     vec2 _156 = vec2(fma(fp_c3_1._m0[0].y, fp_c3_1._m0[3].y, _37.z), fma(fp_c3_1._m0[0].y, fp_c3_1._m0[3].z, _37.w));
     vec4 _56 = texture(fp_t_cb196610_1057005E, mix(_156, vec2(0.0), isnan(_156))).xyzw;
     float _58 = _56.w;
-    vec3 face = _39.xyz * fp_c3_1._m0[2].xyz;
+    vec3 vc = _39.xyz;   // the vertex colour: the text's colour as the game sets it
+    vec3 face = vc * fp_c3_1._m0[2].xyz;
     vec3 oc = fp_c3_1._m0[4].xyz;
     if (oc == vec3(1.0, 0.0, 1.0))
     {
+        float white = smoothstep(0.75, 0.95, min(face.r, min(face.g, face.b)));   // 1 for white text, 0 for coloured
+        vc = mix(vc, WHITE / max(fp_c3_1._m0[2].xyz, vec3(1e-4)), white);
         float lum = dot(face, vec3(0.2126, 0.7152, 0.0722));   // linear: dark brown text is near 0.03, white 1
         oc = mix(LIGHT, DARK, smoothstep(0.12, 0.3, lum));
     }
-    precise float _169 = _39.x * fp_c3_1._m0[2].x;
+    precise float _169 = vc.x * fp_c3_1._m0[2].x;
     precise float _170 = _52.x * _169;
     float _60 = _170;
     precise float _174 = _54 * fp_c3_1._m0[2].w;
     float _62 = _174;
-    precise float _181 = _39.y * fp_c3_1._m0[2].y;
+    precise float _181 = vc.y * fp_c3_1._m0[2].y;
     precise float _182 = _52.y * _181;
     float _64 = _182;
-    precise float _189 = _39.z * fp_c3_1._m0[2].z;
+    precise float _189 = vc.z * fp_c3_1._m0[2].z;
     precise float _190 = _52.z * _189;
     float _66 = _190;
     precise float _195 = _58 * fp_c3_1._m0[4].w;
