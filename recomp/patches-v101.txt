@@ -2,7 +2,8 @@
 # Module offsets are in main. The patch page's words in use: +32 the output width, +36 its height
 # (runtime/resolution.c, res_init); +64..83 the walking speed by stick tilt and the movement dead zone (runtime/input.c, move_tilt); +84 the shadow map scale
 # (runtime/resolution.c, res_init); +88..99 the camera offsets (runtime/input.c, camera_stick); +100..107 the fog's
-# distance offset and density factor while the camera's zoom applies them (set camera, below).
+# distance offset and density factor while the camera's zoom applies them, +108 the distance the zoom adds, for the
+# depth of field (set camera, below).
 
 # Output size. The Unity player's default resolution routine (main+0x6b7204, called at start and when the console
 # mode changes, where it logs "Operation mode changed to console, switching to: %ix%i") stores 1280x720 and then, docked
@@ -91,11 +92,21 @@ site camera main 1d62024 529f46a8 @page:x8 2d4b1504 bd406106 1e242800 1e252821 1
 #   +0x64 gets the distance the zoom adds (v8 - v8 / zoom) and +0x68 zoom - 1, the routine runs on RenderSettings, and
 #   the next site puts 0 back in both before the original load: the fog's constants follow the camera each field
 #   frame, and a room load or a battle, which run the routine themselves, see the game's own values.
+# The same distance also goes to +0x6c, which stays: the depth of field below reads it.
 site camera main 365a1c bd417e61 bd417e61 @page:x8 bd406507 1e272821   # ldr s1, start; s7 = [page+0x64]; s1 += s7
 site camera main 365a28 bd418262 bd418262 1e272842                     # ldr s2, end; s2 += s7
 site camera main 365a4c bd418660 bd418660 @page:x8 bd406907 1e2e1010 1e3028e7 1e271800   # ldr s0, density; s0 /= 1 + [page+0x68]
-site camera main 1d620d8 f9400280 @page:x8 bd406100 1e201901 1e213901 bd006501 1e2e1002 1e223802 bd006902 9000fe00 f9432800 97980e45   # offsets, then bl main+0x3659ec(RenderSettings)
+site camera main 1d620d8 f9400280 @page:x8 bd406100 1e201901 1e213901 bd006501 bd006d01 1e2e1002 1e223802 bd006902 9000fe00 f9432800 97980e45   # offsets, then bl main+0x3659ec(RenderSettings)
 site camera main 1d620dc f9405c08 @page:x8 b900651f b900691f f9400280 f9405c08   # both back to 0; ldr x0, [x20]; the original
+
+# Depth of field that follows the zoom. Some rooms (Booster Pass) blur what lies outside a band of distances from the
+# camera, through URP's depth of field in Gaussian mode: PostProcessPass.DoGaussianDepthOfField (main+0x1c9a790) reads
+# the volume's gaussianStart and gaussianEnd (s12, and s13 = max(start, end)) and sets them as _CoCParams with
+# Material.SetVector (main+0x1c9a938). A camera zoomed out sat beyond the end, and the whole room blurred. Both get
+# page +0x6c, the distance the zoom adds (set above), on the way. x9 and s4 are not read before the call.
+# The game's own SimpleDof component (GS.SetDofFilter, from an event script command) has start and end distances too
+# and is left as it is: no room seen so far uses it.
+site camera main 1c9a924 4ead1da1 @page:x9 bd406d24 1e242800 1e2429a1   # mov v1, v13 -> s0 = start + [page+0x6c]; s1 = end + [page+0x6c]
 
 # No gauge moves (MRPG_HIDE_GAUGE). The remake's gauge, its gauge moves and the timed-hit chain come in after the
 # game's prologue: GlobalWork.is_prologue (main+0x18915d0, story flag 0xc9 not set) is asked by the code that fills the
