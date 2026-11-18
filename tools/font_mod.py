@@ -20,9 +20,14 @@ files: it stays in the ignored build folder (the default mods folder is build/<v
 --outline turns on the outline of the bundle's material (outline); with --outline-color auto, the default, the port
 draws it light around dark text and dark around light text (runtime/text_outline.c).
 
+--button-glyphs keeps the game font's own A, B, X and Y as extra characters at U+E000..U+E003 (BUTTON_GLYPHS), which no
+text of the game uses: tools/button_letters_mod.py points the letters on the UI's button icons at them, so the buttons
+keep the game's lettering while every other text takes the new font. The game draws those letters in the bold font.
+
   python tools/font_mod.py --font C:/Windows/Fonts/Gabriola.ttf [--bundle regular] [--name font-test] [--outline 0.07]
 """
 import argparse
+import copy
 import json
 from pathlib import Path
 
@@ -33,6 +38,7 @@ from PIL import Image, ImageDraw, ImageFont
 ROOT = Path(__file__).resolve().parents[1]
 BUNDLE_DIR = 'Data/StreamingAssets/aa/Switch/fonts_assets_'
 SUPER = 8   # glyphs are rendered this many times the atlas resolution, and the distances measured there
+BUTTON_GLYPHS = {'A': 0xE000, 'B': 0xE001, 'X': 0xE002, 'Y': 0xE003}   # the game's button letters, kept (--button-glyphs)
 
 
 def romfs_file(version, path):
@@ -145,6 +151,8 @@ def main():
     ap.add_argument('--outline-color', default='auto',
                     help='outline colour, sRGB hex; auto (default): light around dark text and dark around light text, '
                          'drawn by the port (runtime/text_outline.c, settings text_outline_light and _dark)')
+    ap.add_argument('--button-glyphs', action='store_true',
+                    help="keep the game's A, B, X, Y at U+E000..U+E003 for the button icons (tools/button_letters_mod.py)")
     a = ap.parse_args()
 
     rel = f'{BUNDLE_DIR}/font_tmpro_{a.bundle}.bundle'
@@ -169,6 +177,19 @@ def main():
     size = face['m_CapLine'] / cap * 1000 * a.scale
     font = ImageFont.truetype(a.font, max(1, round(size * SUPER)))
 
+    if a.button_glyphs:   # the game's glyphs of the button letters as extra characters (copies: the loop below
+        # replaces the letters' own glyphs); the font has nothing at these code points, so the loop keeps the game's cell
+        chars = {c['m_Unicode']: c for c in fa['m_CharacterTable']}
+        glyphs = {g['m_Index']: g for g in fa['m_GlyphTable']}
+        nxt = max(glyphs) + 1
+        for ch, cp in BUTTON_GLYPHS.items():
+            g = copy.deepcopy(glyphs[chars[ord(ch)]['m_GlyphIndex']])
+            g['m_Index'] = nxt
+            c = copy.deepcopy(chars[ord(ch)])
+            c['m_Unicode'], c['m_GlyphIndex'] = cp, nxt
+            fa['m_GlyphTable'].append(g)
+            fa['m_CharacterTable'].append(c)
+            nxt += 1
     by_index = {g['m_Index']: g for g in fa['m_GlyphTable']}
     orig_atlas = np.asarray(tex.image.split()[-1])   # top-down, as PIL gives it
     nb = font.getbbox('\U0010fffd', anchor='ls')
