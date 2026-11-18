@@ -20,6 +20,9 @@ files: it stays in the ignored build folder (the default mods folder is build/<v
 --outline turns on the outline of the bundle's material (outline); with --outline-color auto, the default, the port
 draws it light around dark text and dark around light text (runtime/text_outline.c).
 
+Characters the game's text uses but its font asset does not list (EXTRA_CHARS: the em dash, other dashes, typographic
+quotes, the ellipsis) are added when the new font has them, so they do not come from the asset's fallback font.
+
 --button-glyphs keeps the game font's own A, B, X and Y as extra characters at U+E000..U+E003 (BUTTON_GLYPHS), which no
 text of the game uses: tools/button_letters_mod.py points the letters on the UI's button icons at them, so the buttons
 keep the game's lettering while every other text takes the new font. The game draws those letters in the bold font.
@@ -43,6 +46,11 @@ ROOT = Path(__file__).resolve().parents[1]
 BUNDLE_DIR = 'Data/StreamingAssets/aa/Switch/fonts_assets_'
 SUPER = 8   # glyphs are rendered this many times the atlas resolution, and the distances measured there
 BUTTON_GLYPHS = {'A': 0xE000, 'B': 0xE001, 'X': 0xE002, 'Y': 0xE003}   # the game's button letters, kept (--button-glyphs)
+# Characters the game's text uses that its Latin font assets do not list, added when the new font has them: without
+# them the text takes them from the font asset's fallback (the Japanese font), whose em dash spans its whole cell at
+# another font's scale and runs into the next letter. The English text uses the em dash (82 times); the others are
+# the typographic quotes and dashes a translation may use.
+EXTRA_CHARS = '\u2014\u2013\u2018\u2019\u201c\u201d\u2026'
 BUTTON_CORNER = 8   # the button glyphs sit in the bottom 1/8 of the atlas's right half (text_outline.frag BUTTON_V)
 
 
@@ -158,6 +166,8 @@ def main():
                          'drawn by the port (runtime/text_outline.c, settings text_outline_light and _dark)')
     ap.add_argument('--button-glyphs', action='store_true',
                     help="keep the game's A, B, X, Y at U+E000..U+E003 for the button icons (tools/button_letters_mod.py)")
+    ap.add_argument('--extra-chars', default=EXTRA_CHARS,
+                    help='characters to add to the font asset when the font has them (default: dashes, quotes, ellipsis)')
     ap.add_argument('--button-font', help='with --button-glyphs: draw those four from this font instead of the game\'s')
     a = ap.parse_args()
 
@@ -196,6 +206,26 @@ def main():
             fa['m_GlyphTable'].append(g)
             fa['m_CharacterTable'].append(c)
             nxt += 1
+    # characters the asset does not list but the text uses (EXTRA_CHARS), as new glyphs, when the font has them
+    nb0 = font.getbbox('\U0010fffd', anchor='ls')
+    nim0 = Image.new('L', (nb0[2] - nb0[0] + 2, nb0[3] - nb0[1] + 2), 0)
+    ImageDraw.Draw(nim0).text((1 - nb0[0], 1 - nb0[1]), '\U0010fffd', font=font, fill=255, anchor='ls')
+    chars = {c['m_Unicode']: c for c in fa['m_CharacterTable']}
+    glyphs = {g['m_Index']: g for g in fa['m_GlyphTable']}
+    template_c, template_g = chars[ord('A')], glyphs[chars[ord('A')]['m_GlyphIndex']]
+    added = []
+    for ch in a.extra_chars:
+        if ord(ch) in chars or not has_glyph(font, ch, (nb0, nim0.tobytes())):
+            continue
+        g = copy.deepcopy(template_g)
+        g['m_Index'] = max(glyphs) + 1
+        glyphs[g['m_Index']] = g
+        c = copy.deepcopy(template_c)
+        c['m_Unicode'], c['m_GlyphIndex'] = ord(ch), g['m_Index']
+        fa['m_GlyphTable'].append(g)
+        fa['m_CharacterTable'].append(c)
+        chars[ord(ch)] = c
+        added.append(f'U+{ord(ch):04X}')
     bfont = None
     if a.button_font:   # the button letters' font, scaled to the same capital height
         bprobe = ImageFont.truetype(a.button_font, 1000)
@@ -212,7 +242,7 @@ def main():
     kept = []
     atlas = np.zeros((H, W), np.uint8)
     x = y = row = 0
-    used = []
+    used, cells = [], []
     for c in fa['m_CharacterTable']:
         g = by_index.get(c['m_GlyphIndex'])
         if not g:
@@ -238,15 +268,21 @@ def main():
         if img is None:
             g['m_GlyphRect'] = {'m_X': 0, 'm_Y': 0, 'm_Width': 0, 'm_Height': 0}
             continue
+        cells.append((img, met, g, button))
+    # pack: the tallest first, so each shelf holds glyphs of about its height (table order wastes the space above the
+    # short ones and no longer fits the bold font with the extra characters)
+    for img, met, g, button in sorted(cells, key=lambda c: -c[0].shape[0]):
         hh, ww = img.shape
         if button:   # into the button corner, along its bottom row
             if bx + ww > W or hh > H - corner_top:
                 raise SystemExit('the button glyphs do not fit their corner of the atlas')
             gx, gy, bx = bx, H - hh, bx + ww
-        else:
-            if x + ww > W:
+        else:   # rows that reach into the button corner end at its left edge
+            limit = W // 2 if button_of and y + hh > corner_top else W
+            if x + ww > limit:
                 x, y, row = 0, y + row, 0
-            if y + hh > H or (y + hh > corner_top and x + ww > W // 2 and button_of):
+                limit = W // 2 if button_of and y + hh > corner_top else W
+            if y + hh > H or x + ww > limit:
                 raise SystemExit('the glyphs do not fit the atlas: try --scale below 1')
             gx, gy = x, y
             x += ww
@@ -274,7 +310,7 @@ def main():
     out.write_bytes(env.file.save())
     Image.fromarray(atlas).save(mods / a.name / f'atlas-{a.bundle}.png')   # a look at the atlas (outside romfs)
     print(f'{out}: {len(used)} glyphs from {Path(a.font).name} at {size:.1f} px per em; the game font\'s kept for '
-          f'{len(kept)} it lacks ({" ".join(kept)})')
+          f'{len(kept)} it lacks ({" ".join(kept)}); added {" ".join(added) or "none"}')
 
 
 if __name__ == '__main__':
