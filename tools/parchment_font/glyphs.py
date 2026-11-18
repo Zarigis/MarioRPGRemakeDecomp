@@ -151,8 +151,7 @@ GLYPHS.update({
             "C 5.4 4.9 6 3.8 6 2.6 C 6 1.8 5.8 1.2 5.2 0.8 C 4.6 0.3 4 0.05 3.3 0 L 1 0"]),
     # Slight inward bend at the top-left (as on O and Q), then a straight
     # left side curving tightly into the base.
-    "C": G(["M 5 7.3 C 5 8.4 4.2 9 3 9 C 2 9 1.2 8.5 1 7.6 C 0.9 7 0.4 6.6 0.1 6 "
-            "C 0 5.6 0 5.2 0 4.8 L 0 2 C 0 0.8 0.8 0 2 0 C 3.4 0 4.6 0.8 5 2.2 L 5 2.9"]),
+    "C": G(["M 5 7.3 C 5 8.4 4.2 9 3 9 C 1.9 9 1.05 8.4 0.6 7.4 C 0.2 6.5 0 5.7 0 4.8 L 0 2 C 0 0.8 0.8 0 2 0 C 3.4 0 4.6 0.8 5 2.2 L 5 2.9"]),
     "D": G(["M 1 0 L 1 8.3",
             "M 0 7.5 C 0.3 8.6 1 9 2 9 L 3.5 9 C 4.6 9 5 8.2 5 7 L 5 3 C 5 1.2 4 0 2.8 0 L 1 0"]),
     "E": G(["M 0 7.4 C 0.3 8.6 1 9 2 9 L 5.2 9",
@@ -164,16 +163,16 @@ GLYPHS.update({
     # Straight left side with angled (chamfered) top-left and bottom-left
     # corners; a vertical stem drops from the bar to the baseline and the
     # bowl curves round and rises diagonally through the stem to the bar.
-    "G": G(["M 5 8 C 4.6 8.7 3.9 9 3 9 L 2.3 9 C 2 9 1.8 8.9 1.6 8.7 L 0.3 7.2 C 0.1 7 0 6.7 0 6.3 "
-            "L 0 1.6 C 0 1.3 0.1 1.1 0.3 0.9 L 0.9 0.3 C 1.1 0.1 1.4 0 1.7 0 C 2.7 0 3.4 0.8 3.9 1.8 "
+    "G": G(["M 5 8 C 4.6 8.7 3.9 9 3 9 L 2.4 9 C 1.3 9 0.45 8.2 0.12 7.1 C 0.02 6.8 0 6.6 0 6.3 "
+            "C -0.22 5.0 -0.22 2.9 0 1.6 C 0 1.3 0.1 1.1 0.3 0.9 L 0.9 0.3 C 1.1 0.1 1.4 0 1.7 0 C 2.7 0 3.4 0.8 3.9 1.8 "
             "C 4.25 2.7 4.65 3.5 5 4",
             "M 4 4 L 4 0",
             "M 3 4 L 6 4"]),
     "H": G(["M 0 9 L 0 0", "M 5 9 L 5 0", "M 0 4.3 C 1.5 4.1 3.5 4 5 4"]),
     "I": G(["M 0 9 L 2 9", "M 1 9 L 1 0", "M 0 0 L 2 0"]),
-    # Angled hook: the stem cuts in diagonally near the bottom, a short
-    # flattish base, then a tick back up on the left.
-    "J": G(["M 4 9 L 4 2.3 C 4 1.8 3.8 1.4 3.4 1.0 L 2.6 0.3 C 2.3 0.05 2.0 0 1.6 0 C 1.0 0 0.4 0.4 0 1.0"],
+    # Rounded hook: the stem curves round into the base, then a tick back
+    # up on the left.
+    "J": G(["M 4 9 L 4 2.4 C 4 1.1 3.1 0.1 2.1 0 C 1.2 -0.05 0.5 0.4 0 1.0"],
            rough=dict(EDGE_SEED="1")),  # re-rolled texture: default was lumpy with a bleed at the hook
     "K": G(["M 0 9 L 0 0",
             "M 5.1 9 C 3.6 7.6 2 6 0.4 4.6",
@@ -183,7 +182,7 @@ GLYPHS.update({
     # Straight outer sides that bend gently (not kinked) into verticals lower
     # down (the left slants in to the top, the right drops straight); a
     # straight V in the middle.
-    "M": G(["M 0 0 L 0 2.4 C 0 3.4 0.35 4.3 0.75 5.3 L 2 9 L 4 3.2 L 7 9 L 7 5.4 C 7 4.4 8 3.6 8 2.4 L 8 0"]),
+    "M": G(["M 0 0 L 0 2.2 C 0 3.6 0.35 4.6 0.75 5.6 C 1.15 6.6 1.6 7.8 2 9 L 4 3.2 L 7 9 C 7.1 7.2 7.4 5.7 7.7 4.6 C 7.9 3.8 8 3.2 8 2.4 L 8 0"]),
     "N": G(["M 0 0 L 0 9 C 1.5 7 3.4 4.2 5 2", "M 5 9 L 5 0"], rough=dict(EDGE_SEED="4", bold=dict(EDGE_SEED="2"))),  # re-rolled texture: default pinched the right stem
     # Straight right side; the left side has gentle inward bends at the
     # top-left and bottom-left (toned down from the source's).
@@ -199,7 +198,7 @@ GLYPHS.update({
     # Bowl sits on row 1 with a slight inward bend at the top-left; short
     # tail from inside the bowl's lower right out past the baseline.
     "Q": G(["M 3 9 C 4.6 9 6 8 6 6.4 L 6 3.6 C 6 2 5 1 3.4 1 C 1.8 1 0.8 1.6 0.4 2.6 "
-            "C 0.1 3.2 0 3.8 0 4.4 L 0 5.6 C 0 6.2 0.6 6.6 0.9 7.2 C 1.2 8.2 2 9 3 9 Z",
+            "C 0.1 3.2 0 3.8 0 4.4 L 0 5.4 C 0 6.2 0.2 6.9 0.55 7.5 C 1.05 8.4 1.9 9 3 9 Z",
             "M 3.8 3.1 C 4.6 2.3 5.4 1.2 6.2 0"]),
     "R": G(["M 1 0 L 1 7.5",
             "M 0 6.8 L 2.3 8.35 C 3.1 8.9 4 9.05 4.9 9.05 C 6.3 9.05 7 8.3 7 7.3 C 7 5.8 5.6 4.8 3.2 4.2 "
@@ -244,11 +243,11 @@ GLYPHS.update({
             "C 3.8 1 4.3 0.6 5 0.4",
             "M 3.85 3.7 C 3.3 4.1 2.6 4.2 1.9 4.1 C 0.8 3.95 0 3.1 0 2 C 0 0.8 0.8 0 1.8 0 C 2.8 0 3.4 0.6 3.8 1.5"],
            rough=dict(EDGE_SEED="10")),  # re-rolled texture
-    # Round bowl, curving all the way from the stem (no flat runs), with a
-    # slight inward dent along the upper and lower right edges.
+    # Round bowl, curving all the way from the stem (no flat runs), convex
+    # all the way round the right side.
     "b": G(["M 0 9 L 0 0",
-            "M 0 0.2 C 0.5 0 1.3 -0.05 1.9 0.05 C 2.4 0.15 2.75 0.45 3.0 0.9 C 3.3 1.45 4 1.9 4 2.7 "
-            "L 4 3.3 C 4 4.0 3.3 4.4 3.0 5.0 C 2.75 5.5 2.4 5.85 1.9 5.95 C 1.3 6.05 0.5 6 0 5.8"]),
+            "M 0 0.2 C 0.5 0 1.2 0 1.8 0 C 3.1 0 4 1.2 4 2.6 "
+            "L 4 3.4 C 4 4.8 3.1 6 1.8 6 C 1.2 6 0.5 6 0 5.8"]),
     "c": G(["M 3 6 C 3 6.7 2.6 7 2 7 C 0.8 7 0 5.6 0 3.8 C 0 1.6 0.6 0 1.6 0 C 2.6 0 3.6 1.6 5 3"]),
     "d": G(["M 4 9 L 4 2 C 4 1 4.4 0.3 5 0", _D_BOWL]),
     # Irregular e: angled top-left, small upper bowl over a bar slanting
@@ -263,13 +262,14 @@ GLYPHS.update({
     "f": G(["M 4 9 C 3 9 2 8.4 2 7 L 2 0", "M 0 6 L 3 6"]),
     # Bowl (rows 2-7) pulled in at the top-left and bottom-right so it is
     # not a perfect oval; vertical stem on the right with a small ear
-    # flagging out at the top; short descender hooking back up on the left.
+    # flagging out at the top that tapers in below the bowl into a short
+    # descender hooking back up on the left.
     "g": G(["M 2.3 7 C 3.4 7 4 6.3 4 5.2 L 4 4.4 C 3.9 3.7 3.5 3.0 3.0 2.55 C 2.6 2.2 2.2 2.0 1.7 2.0 "
             "C 0.8 2 0 2.8 0 4 L 0 4.7 C 0 5.1 0.2 5.4 0.5 5.8 L 1.1 6.55 C 1.4 6.9 1.8 7 2.3 7 Z",
-            "M 4 6.6 L 4 1.8 C 4 0.8 3.2 -0.6 2.3 -1.45 C 1.9 -1.85 1.4 -2.0 1.0 -1.85 C 0.5 -1.6 0.15 -1.0 0 -0.2",
-            "M 4 6.1 C 4.3 6.13 4.6 6.15 4.85 6.12"],
+            "M 4 6.6 L 4 3.0 C 4 1.7 3.6 0.3 2.9 -0.7 C 2.7 -1.0 2.5 -1.25 2.3 -1.45 C 1.9 -1.85 1.4 -2.0 1.0 -1.85 C 0.5 -1.6 0.15 -1.0 0 -0.2",
+            "M 4 6.6 C 4.35 6.5 4.6 6.35 4.85 6.2"],
            # fills the corner under the bowl where it sweeps into the stem
-           ["M 2.5 2.2 C 2.8 1.5 3.3 0.9 4 0.4 L 4 2.6 Z"], rough=dict(EDGE_SEED="2")),  # re-rolled texture
+           ["M 2.7 2.3 C 3.1 1.9 3.5 1.6 3.8 1.4 L 4 2.8 Z"], rough=dict(EDGE_SEED="2")),  # re-rolled texture
     "h": G(["M 0 9 L 0 0", "M 0 5.6 C 0.6 6 1.4 6 2.4 6 C 3.4 6 4 5.3 4 4.4 L 4 0"],
            rough=dict(EDGE_SEED="6")),  # re-rolled texture: default was lumpy, pinched right leg
     "i": G(["M 0 6 L 0 0"], [ell(0.1, 8.5, 0.6, 0.85)], adv=3,  # same narrow dot as j
@@ -297,11 +297,10 @@ GLYPHS.update({
     # Like P: the bowl starts with a straight upward slant off the stem, then
     # rounds all the way back to it. Stem tops out at row 6.
     "p": G([_P_BOWL, scaled(_P_BOWL, 4.4, 4.0, 0.9, 0.94), "M 0 6.2 L 0 -1.1"]),
-    # Leaning bowl: the top sits right of centre with a straight diagonal
-    # down the upper left; the bottom climbs diagonally back to the stem.
-    # Short descender.
+    # Leaning bowl: the top sits right of centre and rounds down the upper
+    # left; the bottom climbs diagonally back to the stem. Short descender.
     "q": G(["M 5 6.6 L 5 -1.0",
-            "M 5 6.6 C 4.8 6.95 4.4 7.05 3.8 7.05 C 3.2 7.05 2.7 6.8 2.2 6.3 L 0.6 4.6 C 0.2 4.2 0 3.7 0 3.2 "
+            "M 5 6.6 C 4.8 6.95 4.4 7.05 3.8 7.05 C 2.1 7.05 0.65 6.0 0.2 4.6 C 0.05 4.1 0 3.7 0 3.2 "
             "L 0 2.4 C 0 1.6 0.6 1.0 1.4 1.0 C 2.1 1.0 2.7 1.4 3.3 2.0 L 4.2 2.9 C 4.5 3.2 4.75 3.4 5 3.5"]),
     "r": G(["M 0 7 L 0 0", "M 0 5.4 C 0.6 6.6 1.6 7 2.8 7 C 3.6 7 4 6.6 4 6"]),
     # Irregular s: narrow top bowl, fuller bottom bowl, a near-straight

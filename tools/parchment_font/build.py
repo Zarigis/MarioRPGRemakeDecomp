@@ -39,11 +39,20 @@ FACET = 0           # >0: flatten centreline curves into straight facets this lo
 FACET_JITTER = 0.35 # relative randomness of facet lengths
 EDGE_ROUGH = 9      # >0: amplitude of fine noise along outline edges (font units); 0 = smooth
 EDGE_WAVE = 45      # typical wavelength of that edge noise (font units)
-EDGE_STYLE = "noise"  # "sine": even scallops; "noise": irregular bumps, patchy, with outward bleeds
+EDGE_STYLE = "width"  # "sine": even scallops; "noise": irregular bumps, patchy, with outward bleeds;
+                      # "width": smooth stroke-width variation only (EDGE_ROUGH = max change per side)
+WIDTH_WAVE = 170    # "width" style: wavelength of the 2-D width field (font units)
+WIDTH_STEP = 40     # "width" style: longest outline piece moved as one (font units)
 EDGE_BLEED = 1.4    # strength of the occasional outward ink bleeds ("noise" style)
 EDGE_SEED = ""      # extra seed text; override per glyph to re-roll an unlucky texture
+EDGE_LIMIT_OUT = 2.0  # soft ceiling on outward displacement, in EDGE_ROUGH units (0 = no limit)
+EDGE_LIMIT_IN = 1.5   # same for inward displacement
+EDGE_BLEED_GAP = 2.5  # bleeds: min gap between bleed centres, in EDGE_WAVE units (0 = old placement)
+EDGE_BLEED_MAX = 1.5  # bleeds: max height factor (was 1.8)
 AMP_LOG = None      # debug: a list to collect per-point outward displacement of the edge texture
 EMBOLDEN = 0        # >0: grow every outline outward by this much (font units) - the Bold style
+THICKEN = 4         # grow every outline in place by this much per side (font units); unlike
+                    # EMBOLDEN it leaves advances and sidebearings alone
 STYLE = "Regular"   # style name written into the font ("Regular" or "Bold")
 # Settings applied on top of the defaults when building the Bold.
 # Fixed-width digits: the game's Regular font has tabular 0-9 (HP counters, coin
@@ -52,7 +61,7 @@ STYLE = "Regular"   # style name written into the font ("Regular" or "Bold")
 # original digits are proportional). Advance ~0.8 of the 700-unit cap height.
 TABULAR_DIGITS = "0123456789"
 TABULAR_ADV = 560
-BOLD = dict(EMBOLDEN=20, STYLE="Bold", EDGE_ROUGH=6, EDGE_BLEED=1.0, TABULAR_DIGITS="")
+BOLD = dict(EMBOLDEN=20, STYLE="Bold", TABULAR_DIGITS="")
 # Per-glyph overrides: G(..., rough=dict(EDGE_ROUGH=5)) in glyphs.py changes
 # any of the EDGE_* settings for that glyph only.
 
@@ -152,11 +161,141 @@ def _knot_noise(rng, length, wave, lo, hi):
     return f
 
 
+def _value_noise_2d(seed, wave):
+    """Smooth 2-D noise in about [-1, 1]: random lattice values every `wave`
+    units, eased between, plus a weaker octave at half the wavelength."""
+    cache = {}
+
+    def lattice(o, i, j):
+        k = (o, i, j)
+        if k not in cache:
+            cache[k] = random.Random(f"{seed}-{o}-{i}-{j}").uniform(-1, 1)
+        return cache[k]
+
+    def octave(o, w, x, y):
+        fx, fy = x / w, y / w
+        i, j = math.floor(fx), math.floor(fy)
+        u, v = fx - i, fy - j
+        u, v = u * u * (3 - 2 * u), v * v * (3 - 2 * v)
+        a = lattice(o, i, j) + (lattice(o, i + 1, j) - lattice(o, i, j)) * u
+        b = lattice(o, i, j + 1) + (lattice(o, i + 1, j + 1) - lattice(o, i, j + 1)) * u
+        return a + (b - a) * v
+
+    return lambda x, y: 0.75 * octave(0, wave, x, y) + 0.25 * octave(1, wave / 2, x, y)
+
+
+def vary_width(path, seed):
+    """EDGE_STYLE "width": swell and thin the strokes by up to EDGE_ROUGH units
+    per side, following a smooth 2-D field (WIDTH_WAVE wavelength). Both edges of
+    a stroke sit close together in that field, so they move out or in together.
+
+    Works on the outline's own segments rather than a dense polyline: each one is
+    split into pieces of at most WIDTH_STEP units, the piece ends move along the
+    outline normal and each quadratic control point moves by the average of its
+    ends. That keeps the outline smooth and sparse - a dense outline turns into a
+    staircase wherever a renderer rounds points to whole pixels (hinting)."""
+    from fontTools.pens.basePen import decomposeQuadraticSegment
+    from fontTools.pens.recordingPen import RecordingPen as _Rec
+    field = _value_noise_2d(f"width-{seed}{EDGE_SEED}", WIDTH_WAVE)
+    rec = _Rec()
+    path.draw(rec)
+    # contours as lists of segments: ("L", p0, p1) or ("Q", p0, c, p1)
+    contours, segs, start, last = [], [], None, None
+    for op, args in rec.value:
+        if op == "moveTo":
+            segs, start, last = [], args[0], args[0]
+        elif op == "lineTo":
+            segs.append(("L", last, args[0]))
+            last = args[0]
+        elif op == "qCurveTo":
+            for c, e in (decomposeQuadraticSegment(args) if len(args) > 2 else [args]):
+                segs.append(("Q", last, c, e))
+                last = e
+        elif op == "curveTo":  # rare (fills): approximate each cubic by two quadratics
+            c1, c2, e = args
+            m = tuple((last[k] + 3 * c1[k] + 3 * c2[k] + e[k]) / 8 for k in (0, 1))
+            qa = tuple((last[k] + 3 * c1[k]) / 4 for k in (0, 1))
+            qb = tuple((3 * c2[k] + e[k]) / 4 for k in (0, 1))
+            segs += [("Q", last, qa, m), ("Q", m, qb, e)]
+            last = e
+        elif op in ("closePath", "endPath"):
+            if last is not None and start is not None and math.dist(last, start) > 1e-6:
+                segs.append(("L", last, start))
+            if segs:
+                contours.append(segs)
+            segs, start, last = [], None, None
+
+    def lerp(a, b, t):
+        return (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
+
+    def pieces(seg):
+        """Split a segment into pieces no longer than about WIDTH_STEP."""
+        if seg[0] == "L":
+            _, p0, p1 = seg
+            n = max(1, math.ceil(math.dist(p0, p1) / WIDTH_STEP))
+            return [("L", lerp(p0, p1, i / n), lerp(p0, p1, (i + 1) / n)) for i in range(n)]
+        _, p0, c, p1 = seg
+        n = max(1, math.ceil((math.dist(p0, c) + math.dist(c, p1)) / WIDTH_STEP))
+
+        def q(t):
+            return lerp(lerp(p0, c, t), lerp(c, p1, t), t)
+        out = []
+        for i in range(n):  # sub-curve on [t0, t1]; its control point by de Casteljau
+            t0, t1 = i / n, (i + 1) / n
+            out.append(("Q", q(t0), lerp(lerp(p0, c, t0), lerp(c, p1, t0), t1), q(t1)))
+        return out
+
+    def tangent(seg, at_end):
+        a, b = (seg[-2], seg[-1]) if at_end else (seg[1], seg[2])
+        tx, ty = b[0] - a[0], b[1] - a[1]
+        ln = math.hypot(tx, ty)
+        return (tx / ln, ty / ln) if ln else (0.0, 0.0)
+
+    def shift(q, v):
+        return (q[0] + v[0], q[1] + v[1])
+
+    out = pathops.Path()
+    pen = out.getPen()
+    for segs in contours:
+        ps = [p for sg in segs for p in pieces(sg)]
+        n = len(ps)
+        # one normal per piece start, averaged across the join with the previous piece
+        normals = []
+        for i in range(n):
+            ta, tb = tangent(ps[i - 1], True), tangent(ps[i], False)
+            tx, ty = ta[0] + tb[0], ta[1] + tb[1]
+            ln = math.hypot(tx, ty) or 1
+            normals.append((-ty / ln, tx / ln))
+        # outward side: the same all round a contour, decided by majority vote
+        votes = sum(1 if path.contains((p[1][0] + nx * 3, p[1][1] + ny * 3)) else -1
+                    for p, (nx, ny) in zip(ps, normals))
+        sign = -1 if votes > 0 else 1
+        moves = []
+        for p, (nx, ny) in zip(ps, normals):
+            d = sign * EDGE_ROUGH * field(*p[1])
+            if AMP_LOG is not None:
+                AMP_LOG.append(d * sign)
+            moves.append((nx * d, ny * d))
+        pen.moveTo(shift(ps[0][1], moves[0]))
+        for i, p in enumerate(ps):
+            v0, v1 = moves[i], moves[(i + 1) % n]
+            end = shift(p[-1], v1)
+            if p[0] == "L":
+                pen.lineTo(end)
+            else:
+                pen.qCurveTo(shift(p[2], ((v0[0] + v1[0]) / 2, (v0[1] + v1[1]) / 2)), end)
+        pen.closePath()
+    out.simplify()
+    return out
+
+
 def roughen(path, seed):
     """Displace the outline along its normals by smooth fine noise (EDGE_ROUGH
     units, EDGE_WAVE wavelength), like ink bleeding into paper."""
     from fontTools.pens.basePen import decomposeQuadraticSegment
     from fontTools.pens.recordingPen import RecordingPen as _Rec
+    if EDGE_STYLE == "width":
+        return vary_width(path, seed)
     rng = random.Random(f"rough-{seed}{EDGE_SEED}")
     rec = _Rec()
     path.draw(rec)
@@ -190,7 +329,7 @@ def roughen(path, seed):
     out = pathops.Path()
     pen = out.getPen()
     step = max(4.0, EDGE_WAVE / 8)
-    for pts in contours:
+    for ci, pts in enumerate(contours):
         # resample at roughly even spacing along the outline
         res = []
         for a, b in zip(pts, pts[1:] + pts[:1]):
@@ -208,9 +347,23 @@ def roughen(path, seed):
             fine = _knot_noise(rng, perimeter, EDGE_WAVE, 0.45, 1.7)
             env = _knot_noise(rng, perimeter, EDGE_WAVE * 4, 0.6, 1.6)
             # a few outward bleeds: (position, width, height)
-            nb = rng.randint(0, max(1, int(perimeter / (EDGE_WAVE * 5))))
-            bleeds = [(rng.uniform(0, perimeter), EDGE_WAVE * rng.uniform(0.35, 0.8), rng.uniform(0.8, 1.8))
-                      for _ in range(nb)]
+            if EDGE_BLEED_GAP > 0:
+                # own generator (fine/env noise above stays as it was for every seed),
+                # bleeds kept apart so they never stack into one big lump
+                brng = random.Random(f"bleed-{seed}{EDGE_SEED}-{ci}")
+                nb = brng.randint(0, max(1, int(perimeter / (EDGE_WAVE * 5))))
+                gap = EDGE_WAVE * EDGE_BLEED_GAP
+                bleeds = []
+                for _ in range(nb * 4):
+                    if len(bleeds) == nb:
+                        break
+                    pos = brng.uniform(0, perimeter)
+                    if all(min(abs(pos - p), perimeter - abs(pos - p)) >= gap for p, _, _ in bleeds):
+                        bleeds.append((pos, EDGE_WAVE * brng.uniform(0.35, 0.8), brng.uniform(0.8, EDGE_BLEED_MAX)))
+            else:
+                nb = rng.randint(0, max(1, int(perimeter / (EDGE_WAVE * 5))))
+                bleeds = [(rng.uniform(0, perimeter), EDGE_WAVE * rng.uniform(0.35, 0.8), rng.uniform(0.8, 1.8))
+                          for _ in range(nb)]
         moved = []
         for i, (x, y) in enumerate(res):
             a, b = res[i - 1], res[(i + 1) % len(res)]
@@ -226,6 +379,12 @@ def roughen(path, seed):
                 for pos, wid, hgt in bleeds:
                     dd = min(abs(t - pos), perimeter - abs(t - pos))
                     amp += sign * EDGE_ROUGH * EDGE_BLEED * hgt * math.exp(-(dd / wid) ** 2)
+                # soft limit: small displacements pass unchanged, big ones squeeze towards the ceiling
+                out_amp = amp * sign
+                lim = (EDGE_LIMIT_OUT if out_amp > 0 else EDGE_LIMIT_IN) * EDGE_ROUGH
+                if lim > 0:
+                    out_amp = lim * math.tanh(out_amp / lim)
+                amp = out_amp * sign
             else:
                 amp = EDGE_ROUGH * (math.sin(t / EDGE_WAVE * 2 * math.pi + ph[0]) * 0.55
                                     + math.sin(t / (EDGE_WAVE * 0.53) * 2 * math.pi + ph[1]) * 0.3
@@ -268,17 +427,22 @@ def fill(d, seed):
     return p
 
 
-def embolden(path, amount):
+def embolden(path, amount, shift=True):
     """Grow an outline outward by `amount` units on every side (union with a
-    stroke of its own contour), shifted right by `amount` so the left
-    sidebearing is unchanged; the caller widens the advance by 2*amount."""
+    stroke of its own contour). With `shift`, it also moves right by `amount`
+    so the left sidebearing is unchanged; the caller widens the advance by
+    2*amount."""
+    if not shift:
+        amount_x = 0
+    else:
+        amount_x = amount
     edge = pathops.Path()
     path.draw(edge.getPen())
     edge.stroke(2 * amount, pathops.LineCap.ROUND_CAP, pathops.LineJoin.ROUND_JOIN, 4)
     edge.convertConicsToQuads()
     comb = pathops.Path()
-    path.draw(TransformPen(comb.getPen(), Transform().translate(amount, 0)))
-    edge.draw(TransformPen(comb.getPen(), Transform().translate(amount, 0)))
+    path.draw(TransformPen(comb.getPen(), Transform().translate(amount_x, 0)))
+    edge.draw(TransformPen(comb.getPen(), Transform().translate(amount_x, 0)))
     try:
         comb.simplify()
         return comb
@@ -286,7 +450,7 @@ def embolden(path, amount):
         b = pathops.OpBuilder()
         for q in (path, edge):
             t = pathops.Path()
-            q.draw(TransformPen(t.getPen(), Transform().translate(amount, 0)))
+            q.draw(TransformPen(t.getPen(), Transform().translate(amount_x, 0)))
             b.add(t, pathops.PathOp.UNION)
         return b.resolve()
 
@@ -295,6 +459,8 @@ def build_outline(name, g):
     path = _build_outline(name, g)
     if EMBOLDEN > 0:
         path = embolden(path, EMBOLDEN)
+    if THICKEN > 0:
+        path = embolden(path, THICKEN, shift=False)
     over = dict(g.get("rough") or {})
     style_over = over.pop("bold", None)  # per-glyph settings for the Bold only
     if STYLE == "Bold" and style_over:
