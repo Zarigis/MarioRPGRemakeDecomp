@@ -11,14 +11,13 @@ stands in for the Switch's system software and translates its NVN graphics calls
 
 ## Status
 
-Work in progress; not playable yet. What works:
+Playable. Tested from a new game through the second Star Piece: the field, battles, menus, saves, movies, mini games
+and sound work. Known problems are in the [issues](../../issues), among them an occasional freeze while loading.
 
-- Extraction of the code modules and the RomFS from the base NSP and the update NSP (`tools/extract.py` pieces).
-- Lifting `main` (Unity 2021.3.15f1 player and the IL2CPP game code), `subsdk0` and `sdk` (NintendoSDK 14.3.1) to C:
-  207,215 functions, no unsupported instruction.
-- Loading, linking and running the result: the SDK starts, the module constructors run, `nnMain` starts the Unity
-  player, which creates its threads, mounts the RomFS, and brings up NVN on the Vulkan back end.
-- C++ exceptions and `longjmp` in lifted code, which IL2CPP needs and the code base this started from did not have.
+How it runs: the code modules and the RomFS are extracted from the base NSP and the update NSP; `main` (the Unity
+2021.3.15f1 player and the IL2CPP game code), `subsdk0` and `sdk` (NintendoSDK 14.3.1) are lifted to C (207,215
+functions, no unsupported instruction), compiled and linked with the host runtime, which loads them, starts the SDK
+and the Unity player, serves the RomFS and saves, and draws the game's NVN graphics with Vulkan.
 
 `docs/` still describes the project this repository started from; see below.
 
