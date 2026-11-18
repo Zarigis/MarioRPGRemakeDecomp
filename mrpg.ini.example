@@ -198,6 +198,11 @@
 # The colour around field rooms where the camera sees past their edges (zoomed out or turned): RRGGBB hex, as shown
 # in SDR. The default is the blue of the Super Nintendo version; game keeps the remake's light grey. Read at start.
 # sky_ground = 1839e0
+# Text outlines that follow the text's colour, for a font mod made with tools/font_mod.py --outline-color auto: the
+# outline is text_outline_light around dark text and text_outline_dark around light text (RRGGBB hex). The defaults
+# are the Super Nintendo dialogue's cream and a dark brown. Read at start.
+# text_outline_light = e9d1a8
+# text_outline_dark = 2a1d10
 # Dynamic resolution: 1 lets the game lower the scene to 90 or 80 % of that size, 0 keeps it at 100 %. The game decides
 # by a cost estimate made for the Switch, which grows with the scene's width and ignores how fast your GPU is: a
 # scene wider than about 3000 pixels can drop to 80 % on any GPU. 1 is the default. 1.2.1 and 1.4.3. Changes in
