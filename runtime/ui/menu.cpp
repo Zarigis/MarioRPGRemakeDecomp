@@ -979,6 +979,7 @@ static void mods_builtin_rows(void) {
     opt_group(UI_MENU_MODS_BUILTIN);
     opt_toggle("MRPG_HIDE_GAUGE", UI_MENU_HIDE_GAUGE, UI_MENU_HIDE_GAUGE_DESC);   // recomp/patches-v101.txt, set nogauge
     opt_toggle("MRPG_SIGNAL_RING", UI_MENU_SIGNAL_RING, UI_MENU_SIGNAL_RING_DESC);   // set signalring
+    opt_toggle("MRPG_NO_SPLASH", UI_MENU_NO_SPLASH, UI_MENU_NO_SPLASH_DESC);   // set nosplash
     opt_toggle("MRPG_CAMERA_STICK", UI_MENU_CAMERA_STICK, UI_MENU_CAMERA_STICK_DESC);   // input.c camera_stick
     opt_toggle("MRPG_FREE_DIRECTION", UI_MENU_FREE_DIRECTION, UI_MENU_FREE_DIRECTION_DESC);   // set freedir
     row_colour("MRPG_SKY_GROUND", UI_MENU_SKY_GROUND, UI_MENU_SKY_GROUND_DESC, "1839e0", UI_MENU_SKY_SNES, "game",

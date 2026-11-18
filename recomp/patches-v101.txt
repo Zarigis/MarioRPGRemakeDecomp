@@ -142,3 +142,17 @@ site menurumble main 1c23c64 97ffc937 d503201f   # bl PadVibration.Play -> nop
 # flags change), and the store that follows stores it. x9 is not read again before it is written.
 set signalring MRPG_SIGNAL_RING 0
 site signalring main 1b39300 340006a8 5ac01109 53057d29 2a090114   # cbz w8, none -> w20 = max(w8, 1)
+
+# No splash damage (MRPG_NO_SPLASH, menu "No splash damage"). A frame-perfect timed hit with a normal attack ("very just")
+# also hits the other enemies: they are on the skill's target list from the start, and after the attack's animation
+# Battle.BattleManager.after_skill_anim applies each target's result (BattleSkillParams.apply_skill_result, then
+# BattleCharacterParam.apply_skill_result). For an extra target, BattleCharacterParam.addtional_target (main+0x21bf890)
+# reads the perfect-hit flag of the battle's current skill data (+0x4c, main+0x21bf954) and, while it is 0, sets the
+# target's result to "ignore value" (no damage) and "failed spread". The first site reads it as 0. The second skips the
+# splash as it is drawn: the lambda in BattleAnimExcel.set_hit (<>c__DisplayClass78_1.<set_hit>b__0) tests
+# is_very_just_hit (main+0x1cf3fe4) and, with other targets, plays the wave effect, its sound and vibration and adds a
+# delayed BattleHit for each target but the main one; the site branches past all of it to the lambda's end. The main
+# target's hit and damage are set up and applied elsewhere and stay.
+set nosplash MRPG_NO_SPLASH 0
+site nosplash main 21bf954 b9404d08 2a1f03e8   # ldr w8, [x8, #0x4c] (perfect hit) -> mov w8, wzr
+site nosplash main 1cf3fe8 36001600 140000b0   # tbz w0, #0, end -> b end: no wave, no extra hits
