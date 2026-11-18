@@ -22,6 +22,58 @@ Work in progress; not playable yet. What works:
 
 `docs/` still describes the project this repository started from; see below.
 
+## Enhancements and mods
+
+Changes the port makes to the game, beyond running it. F1 or Esc (Minus and Plus together on a controller) opens the
+settings menu; the rest are `mrpg.ini` keys, documented in [mrpg.ini.example](mrpg.ini.example).
+
+**Picture**
+
+- **Resolution up to 8K.** The game draws at the size you choose, from 1280 × 720 through 1440p and 4K (3840 × 2160) to
+  7680 × 4320. A size above your screen's is scaled down to it, which smooths jagged edges.
+- **Scaling and shape.** When the window is larger than the game's picture, AMD FSR 1 (with a sharpness setting) or
+  bilinear scaling; when its shape differs, black bars or stretching.
+- **Sharper shadows**, with shadow maps up to 4 times the game's size on each side.
+- **FXAA** anti-aliasing and **anisotropic filtering**.
+- **HDR output**, its brightest highlights capped at what Windows reports for the display, and a **colour profile**
+  (brightness, contrast, saturation, gamma) that applies in SDR and HDR.
+- **Sharper enlarged UI sprites** above 1080p.
+
+**Frame rate**
+
+- **A frame limit from 30 to 240 fps**, or the display's refresh rate. The game's battles and the mini games that count
+  frames (the world map, the Yoshi race, the barrel and mine cart rides, ...) stay at 60 fps so they keep their speed;
+  Melody Bay at Tadpole Pond steps by time and runs at the limit.
+
+**Mods tab**
+
+- **Camera on the right stick.** Orbit around Mario, raise and lower the camera, or zoom with ZL held; clicking the
+  stick puts it back. The fog moves back with the zoom. Battles and the world map keep the game's camera.
+- **No gauge moves.** Battles as in the original game: no gauge, no gauge moves, no chain counter or chain bonuses, and
+  the Party page without its Ally Buffs and Gauge Move panels. The Bowyer battle's scripted gauge move still works.
+- **Free movement direction:** Mario walks the way the stick points, instead of the game turning a direction near
+  either of the room's axes onto that axis.
+- **Background around rooms** in the Super Nintendo version's blue instead of the remake's grey, where the camera sees
+  past a room's edge.
+- **Text colours** for a font mod with outlines (below): the dialogue's text and outline, and the menus' light blue text
+  with its dark blue outline, as on the Super Nintendo.
+- **Installed mods:** each folder in the `mods` folder next to `mrpg.exe` (one folder per mod, holding its `romfs`
+  folder, as emulators take them) can be switched on and off and ordered.
+
+**Controls**
+
+- **Walking speed follows the stick's tilt**, with an adjustable movement dead zone.
+
+**Optional mods built from your game files** (written into the `mods` folder; nothing of the game is in this
+repository)
+
+- **A font in the Super Nintendo's spirit:** [Parchment Hand](tools/parchment_font/), an original hand-lettered font
+  (its own source and BSD 3-Clause licence in that folder), put into the game's three text fonts by
+  [tools/font_mod.py](tools/font_mod.py), which takes any TrueType font. With `--outline` the letters get an outline
+  that the port colours by the text: light around dark text, dark around light text.
+- **A parchment dialogue box:** [tools/dialog_box_mod.py](tools/dialog_box_mod.py) redraws the box as Super
+  Nintendo-style mottled parchment, with square corners and uneven edges, or recolours the game's own.
+
 ## Origin
 
 This repository started as a copy of [TotK Recomp](https://github.com/valentderah/totk-pc-recomp) (MIT), a static
